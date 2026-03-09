@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Top Movers</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Stock Top Movers</h1>
+      <p class="subtitle">Daily top mover from AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA</p>
+    </header>
+
+    <div id="loading" class="loading">Loading data...</div>
+    <div id="error" class="error" hidden></div>
+
+    <table id="movers-table" hidden>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Ticker</th>
+          <th>Change %</th>
+          <th>Open</th>
+          <th>Close</th>
+        </tr>
+      </thead>
+      <tbody id="movers-body"></tbody>
+    </table>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

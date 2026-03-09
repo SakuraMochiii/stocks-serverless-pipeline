@@ -1,0 +1,92 @@
+name: Deploy Pipeline
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  TF_VAR_polygon_api_key: ${{ secrets.POLYGON_API_KEY }}
+
+jobs:
+  build:
+    name: Build Lambdas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build ingestion Lambda
+        run: bash scripts/build_lambdas.sh ingestion
+
+      - name: Build API Lambda
+        run: bash scripts/build_lambdas.sh api
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-zips
+          path: |
+            lambdas/ingestion/ingestion.zip
+            lambdas/api/api.zip
+
+  deploy-infra:
+    name: Deploy Infrastructure
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      api_url: ${{ steps.tf-output.outputs.api_url }}
+      frontend_bucket: ${{ steps.tf-output.outputs.frontend_bucket }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Lambda zips
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-zips
+          path: lambdas/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform
+        run: terraform apply -auto-approve
+
+      - name: Get Terraform outputs
+        id: tf-output
+        working-directory: terraform
+        run: |
+          echo "api_url=$(terraform output -raw api_gateway_url)" >> "$GITHUB_OUTPUT"
+          echo "frontend_bucket=$(terraform output -raw frontend_url | sed 's|http://||' | sed 's|.s3-website.*||')" >> "$GITHUB_OUTPUT"
+
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: deploy-infra
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy frontend to S3
+        run: bash scripts/deploy_frontend.sh "${{ needs.deploy-infra.outputs.api_url }}" "${{ needs.deploy-infra.outputs.frontend_bucket }}"
