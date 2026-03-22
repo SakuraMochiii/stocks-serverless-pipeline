@@ -8,7 +8,7 @@ module "ingestion_lambda" {
   project_name    = var.project_name
   dynamodb_table  = module.dynamodb.table_name
   dynamodb_arn    = module.dynamodb.table_arn
-  polygon_api_key = var.polygon_api_key
+  stock_api_key = var.stock_api_key
   stock_tickers   = var.stock_tickers
 }
 

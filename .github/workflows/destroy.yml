@@ -9,7 +9,7 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  TF_VAR_polygon_api_key: "placeholder"
+  TF_VAR_stock_api_key: "placeholder"
 
 jobs:
   destroy:

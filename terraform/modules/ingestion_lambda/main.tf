@@ -43,7 +43,7 @@ resource "aws_lambda_function" "ingestion" {
   role          = aws_iam_role.ingestion.arn
   handler       = "handler.lambda_handler"
   runtime       = "python3.12"
-  timeout       = 60
+  timeout       = 120
   memory_size   = 128
 
   filename         = "${path.module}/../../../lambdas/ingestion/ingestion.zip"
@@ -52,7 +52,7 @@ resource "aws_lambda_function" "ingestion" {
   environment {
     variables = {
       DYNAMODB_TABLE  = var.dynamodb_table
-      POLYGON_API_KEY = var.polygon_api_key
+      STOCK_API_KEY = var.stock_api_key
       STOCK_TICKERS   = var.stock_tickers
     }
   }

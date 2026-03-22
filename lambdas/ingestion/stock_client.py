@@ -7,12 +7,12 @@ from datetime import datetime, timedelta
 
 def get_daily_close(ticker: str, date: str, api_key: str) -> dict | None:
     """
-    Fetch daily open/close data for a ticker from Polygon.io.
+    Fetch daily open/close data for a ticker from the stock API.
     Retries with exponential backoff on 429 (rate limit).
     Falls back to previous trading days on 404 (weekend/holiday).
     Returns dict with ticker, close, open, pct_change or None on failure.
     """
-    max_retries = 3
+    max_retries = 5
     current_date = date
 
     for day_attempt in range(5):  # Try up to 5 previous days for weekends/holidays
@@ -37,8 +37,8 @@ def get_daily_close(ticker: str, date: str, api_key: str) -> dict | None:
 
             except urllib.error.HTTPError as e:
                 if e.code == 429:
-                    wait = 2 ** retry
-                    print(f"Rate limited for {ticker}, retrying in {wait}s...")
+                    wait = min(2 ** (retry + 1), 30)
+                    print(f"Rate limited for {ticker}, retrying in {wait}s (attempt {retry + 1}/{max_retries})...")
                     time.sleep(wait)
                     continue
                 elif e.code == 404:

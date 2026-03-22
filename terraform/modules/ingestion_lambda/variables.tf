@@ -13,8 +13,8 @@ variable "dynamodb_arn" {
   type        = string
 }
 
-variable "polygon_api_key" {
-  description = "Polygon.io API key"
+variable "stock_api_key" {
+  description = "Stock API key"
   type        = string
   sensitive   = true
 }

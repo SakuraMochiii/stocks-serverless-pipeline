@@ -10,8 +10,8 @@ variable "project_name" {
   default     = "stocks-pipeline"
 }
 
-variable "polygon_api_key" {
-  description = "Polygon.io API key for stock data"
+variable "stock_api_key" {
+  description = "API key for stock data provider"
   type        = string
   sensitive   = true
 }

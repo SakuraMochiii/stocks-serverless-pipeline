@@ -12,11 +12,29 @@ def lambda_handler(event, context):
     params = event.get("queryStringParameters") or {}
     if "limit" in params:
         try:
-            limit = min(int(params["limit"]), 30)
+            limit = max(1, min(int(params["limit"]), 30))
         except ValueError:
-            pass
+            return {
+                "statusCode": 400,
+                "headers": {
+                    "Content-Type": "application/json",
+                    "Access-Control-Allow-Origin": "*",
+                },
+                "body": json.dumps({"error": "Invalid limit parameter"}),
+            }
 
-    movers = get_movers(table_name, limit)
+    try:
+        movers = get_movers(table_name, limit)
+    except Exception as e:
+        print(f"Failed to read from DynamoDB: {e}")
+        return {
+            "statusCode": 502,
+            "headers": {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+            },
+            "body": json.dumps({"error": "Failed to retrieve data"}),
+        }
 
     return {
         "statusCode": 200,

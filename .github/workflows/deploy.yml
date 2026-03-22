@@ -10,7 +10,7 @@ permissions:
 
 env:
   AWS_REGION: us-east-1
-  TF_VAR_polygon_api_key: ${{ secrets.POLYGON_API_KEY }}
+  TF_VAR_stock_api_key: ${{ secrets.STOCK_API_KEY }}
 
 jobs:
   build:
@@ -47,7 +47,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: lambda-zips
-          path: lambdas/
+          path: .
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
