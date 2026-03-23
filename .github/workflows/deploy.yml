@@ -47,7 +47,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: lambda-zips
-          path: .
+          path: lambdas
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
