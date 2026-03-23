@@ -5,17 +5,18 @@ import urllib.error
 from datetime import datetime, timedelta
 
 
-def get_daily_close(ticker: str, date: str, api_key: str) -> dict | None:
+def get_daily_close(ticker: str, date: str, api_key: str, fallback: bool = True) -> dict | None:
     """
     Fetch daily open/close data for a ticker from the stock API.
     Retries with exponential backoff on 429 (rate limit).
-    Falls back to previous trading days on 404 (weekend/holiday).
+    If fallback=True, tries previous days on 404 or non-OK responses.
     Returns dict with ticker, close, open, pct_change or None on failure.
     """
     max_retries = 5
     current_date = date
+    max_days = 5 if fallback else 1
 
-    for day_attempt in range(5):  # Try up to 5 previous days for weekends/holidays
+    for day_attempt in range(max_days):
         url = f"https://api.polygon.io/v1/open-close/{ticker}/{current_date}?adjusted=true&apiKey={api_key}"
 
         for retry in range(max_retries):
@@ -33,8 +34,12 @@ def get_daily_close(ticker: str, date: str, api_key: str) -> dict | None:
                         "pct_change": round(pct_change, 4),
                         "date": current_date,
                     }
-                # API returned non-OK status (e.g. NOT_AUTHORIZED for same-day data)
-                # Fall back to previous day
+
+                if not fallback:
+                    print(f"API status '{data.get('status')}' for {ticker} on {current_date}")
+                    return None
+
+                # Non-OK status — try previous day
                 print(f"API status '{data.get('status')}' for {ticker} on {current_date}, trying previous day")
                 dt = datetime.strptime(current_date, "%Y-%m-%d") - timedelta(days=1)
                 current_date = dt.strftime("%Y-%m-%d")
@@ -46,8 +51,7 @@ def get_daily_close(ticker: str, date: str, api_key: str) -> dict | None:
                     print(f"Rate limited for {ticker}, retrying in {wait}s (attempt {retry + 1}/{max_retries})...")
                     time.sleep(wait)
                     continue
-                elif e.code == 404:
-                    # No data for this date — try previous day
+                elif e.code == 404 and fallback:
                     dt = datetime.strptime(current_date, "%Y-%m-%d") - timedelta(days=1)
                     current_date = dt.strftime("%Y-%m-%d")
                     break

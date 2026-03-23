@@ -43,7 +43,7 @@ resource "aws_lambda_function" "ingestion" {
   role          = aws_iam_role.ingestion.arn
   handler       = "handler.lambda_handler"
   runtime       = "python3.12"
-  timeout       = 120
+  timeout       = 300
   memory_size   = 128
 
   filename         = "${path.module}/../../../lambdas/ingestion/ingestion.zip"
