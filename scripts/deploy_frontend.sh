@@ -26,4 +26,4 @@ aws s3 cp "${FRONTEND_DIR}/app.deploy.js" "s3://${S3_BUCKET}/app.js" \
 # Cleanup
 rm -f "${FRONTEND_DIR}/app.deploy.js"
 
-echo "Frontend deployed to: http://${S3_BUCKET}.s3-website-us-east-1.amazonaws.com"
+echo "Frontend deployed to: http://${S3_BUCKET}.s3-website-us-west-2.amazonaws.com"

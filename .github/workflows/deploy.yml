@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: us-west-2
   TF_VAR_stock_api_key: ${{ secrets.STOCK_API_KEY }}
 
 jobs:
