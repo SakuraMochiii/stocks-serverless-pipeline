@@ -10,7 +10,9 @@ def lambda_handler(event, context):
     table_name = os.environ["DYNAMODB_TABLE"]
     api_key = os.environ["STOCK_API_KEY"]
     tickers = os.environ["STOCK_TICKERS"].split(",")
-    today = datetime.utcnow().strftime("%Y-%m-%d")
+    from datetime import timedelta
+    # Free tier API only has previous day data; start from yesterday
+    today = (datetime.utcnow() - timedelta(days=1)).strftime("%Y-%m-%d")
 
     print(f"Fetching stock data for {today}: {tickers}")
 

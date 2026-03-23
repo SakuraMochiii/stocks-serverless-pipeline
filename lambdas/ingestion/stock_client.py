@@ -33,7 +33,12 @@ def get_daily_close(ticker: str, date: str, api_key: str) -> dict | None:
                         "pct_change": round(pct_change, 4),
                         "date": current_date,
                     }
-                return None
+                # API returned non-OK status (e.g. NOT_AUTHORIZED for same-day data)
+                # Fall back to previous day
+                print(f"API status '{data.get('status')}' for {ticker} on {current_date}, trying previous day")
+                dt = datetime.strptime(current_date, "%Y-%m-%d") - timedelta(days=1)
+                current_date = dt.strftime("%Y-%m-%d")
+                break
 
             except urllib.error.HTTPError as e:
                 if e.code == 429:
