@@ -3,7 +3,7 @@ import time
 from datetime import datetime, timedelta
 
 from stock_client import get_daily_close
-from dynamodb_writer import write_top_mover
+from dynamodb_writer import write_all_stocks
 
 
 def find_last_trading_date(api_key):
@@ -66,15 +66,15 @@ def lambda_handler(event, context):
     print(f"Top mover: {top_mover['ticker']} ({top_mover['pct_change']}%)")
 
     try:
-        write_top_mover(table_name, trading_date, top_mover)
+        write_all_stocks(table_name, trading_date, results, top_mover["ticker"])
     except Exception as e:
         print(f"Failed to write to DynamoDB: {e}")
         return {
             "statusCode": 500,
-            "body": f"Failed to store top mover: {e}",
+            "body": f"Failed to store stocks: {e}",
         }
 
     return {
         "statusCode": 200,
-        "body": f"Top mover: {top_mover['ticker']} ({top_mover['pct_change']}%)",
+        "body": f"Wrote {len(results)} stocks. Top mover: {top_mover['ticker']} ({top_mover['pct_change']}%)",
     }

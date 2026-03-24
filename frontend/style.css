@@ -51,30 +51,42 @@ h1 {
   margin-bottom: 1rem;
 }
 
+.day-card {
+  margin-bottom: 1.5rem;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #161b22;
+}
+
+.day-header {
+  background: #21262d;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #58a6ff;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
-  background: #161b22;
-  border-radius: 6px;
-  overflow: hidden;
 }
 
 thead {
-  background: #21262d;
+  background: #1c2128;
 }
 
 th {
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 1rem;
   text-align: left;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #8b949e;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
 td {
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 1rem;
   border-top: 1px solid #21262d;
   font-size: 0.95rem;
 }
@@ -83,8 +95,29 @@ tr:hover {
   background: #1c2128;
 }
 
+tr.top-mover {
+  background: rgba(88, 166, 255, 0.08);
+}
+
+tr.top-mover:hover {
+  background: rgba(88, 166, 255, 0.14);
+}
+
 .ticker {
   font-weight: 700;
+}
+
+.badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: #58a6ff;
+  color: #0d1117;
+  border-radius: 3px;
+  vertical-align: middle;
+  letter-spacing: 0.03em;
 }
 
 .positive {

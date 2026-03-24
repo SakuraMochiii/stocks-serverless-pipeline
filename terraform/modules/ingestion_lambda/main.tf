@@ -26,7 +26,7 @@ resource "aws_iam_role_policy" "ingestion_dynamodb" {
     Version = "2012-10-17"
     Statement = [{
       Effect   = "Allow"
-      Action   = "dynamodb:PutItem"
+      Action   = ["dynamodb:PutItem", "dynamodb:BatchWriteItem"]
       Resource = var.dynamodb_arn
     }]
   })
