@@ -17,7 +17,7 @@ def get_daily_close(ticker: str, date: str, api_key: str, fallback: bool = True)
     max_days = 5 if fallback else 1
 
     for day_attempt in range(max_days):
-        url = f"https://api.polygon.io/v1/open-close/{ticker}/{current_date}?adjusted=true&apiKey={api_key}"
+        url = f"https://api.massive.com/v1/open-close/{ticker}/{current_date}?adjusted=true&apiKey={api_key}"
 
         for retry in range(max_retries):
             try:
