@@ -13,14 +13,20 @@
       <p class="subtitle">Daily watchlist: AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA</p>
     </header>
 
-    <!-- Market Pulse Dashboard -->
-    <div id="market-pulse" class="market-pulse" hidden>
-      <div class="pulse-header">Market Pulse</div>
+    <div id="loading" class="loading">Loading data...</div>
+    <div id="error" class="error" hidden></div>
+
+    <!-- Market Pulse -->
+    <div id="market-pulse" class="card" hidden>
+      <div class="card-header">
+        <span>Market Pulse</span>
+        <span id="pulse-date" class="header-date"></span>
+      </div>
       <div class="pulse-grid">
         <div class="pulse-card">
           <div class="pulse-label">Sentiment</div>
           <div id="sentiment-value" class="pulse-value">--</div>
-          <div id="sentiment-bar" class="sentiment-bar"><div class="sentiment-fill"></div></div>
+          <div class="sentiment-bar"><div id="sentiment-fill" class="sentiment-fill"></div></div>
         </div>
         <div class="pulse-card">
           <div class="pulse-label">Avg Volatility</div>
@@ -32,29 +38,63 @@
         </div>
         <div class="pulse-card">
           <div class="pulse-label">Data Range</div>
-          <div id="range-value" class="pulse-value range-text">--</div>
+          <div id="range-value" class="pulse-value range-small">--</div>
         </div>
       </div>
     </div>
 
-    <!-- Bar Chart -->
-    <div id="chart-section" class="chart-section" hidden>
-      <div class="chart-header">
-        <span>Daily Performance</span>
-        <div class="chart-controls">
-          <button id="chart-prev" class="chart-btn" title="Previous day">&larr;</button>
-          <span id="chart-date" class="chart-date">--</span>
-          <button id="chart-next" class="chart-btn" title="Next day">&rarr;</button>
-        </div>
+    <!-- Today's Top Mover Hero -->
+    <div id="hero" class="hero-card" hidden>
+      <div class="hero-left">
+        <div class="hero-label">Today's Top Mover</div>
+        <div id="hero-ticker" class="hero-ticker">--</div>
+        <div id="hero-pct" class="hero-pct">--</div>
       </div>
-      <canvas id="bar-chart" width="700" height="220"></canvas>
+      <div class="hero-right">
+        <div class="hero-detail"><span class="hero-detail-label">Open</span> <span id="hero-open">--</span></div>
+        <div class="hero-detail"><span class="hero-detail-label">Close</span> <span id="hero-close">--</span></div>
+        <div class="hero-detail"><span class="hero-detail-label">Move</span> <span id="hero-move">--</span></div>
+      </div>
     </div>
 
-    <div id="loading" class="loading">Loading data...</div>
-    <div id="error" class="error" hidden></div>
-    <div id="days-container"></div>
+    <!-- Charts Row -->
+    <div id="charts-row" class="charts-row" hidden>
+      <div class="card chart-card-main">
+        <div class="card-header">Daily Performance</div>
+        <canvas id="bar-chart" height="240"></canvas>
+      </div>
+      <div class="card chart-card-side">
+        <div class="card-header">Gainers vs Losers</div>
+        <canvas id="donut-chart" height="160"></canvas>
+        <div id="donut-legend" class="donut-legend"></div>
+      </div>
+    </div>
+
+    <!-- Today's Full Table -->
+    <div id="today-card" class="card" hidden>
+      <div class="card-header">
+        <span id="today-header">All Stocks</span>
+      </div>
+      <div id="today-table"></div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div id="leaderboard" class="card" hidden>
+      <div class="card-header">Top Mover Leaderboard</div>
+      <div id="leaderboard-content" class="leaderboard-grid"></div>
+    </div>
+
+    <!-- History -->
+    <div id="history-section" class="card" hidden>
+      <div class="card-header">
+        <span>History</span>
+      </div>
+      <div id="history-tabs" class="history-tabs"></div>
+      <div id="history-table"></div>
+    </div>
   </div>
 
+  <div id="tooltip" class="tooltip"></div>
   <script src="app.js"></script>
 </body>
 </html>
