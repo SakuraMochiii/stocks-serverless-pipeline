@@ -51,11 +51,137 @@ h1 {
   margin-bottom: 1rem;
 }
 
+/* Market Pulse */
+.market-pulse {
+  margin-bottom: 1.5rem;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #161b22;
+}
+
+.pulse-header {
+  background: #21262d;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #d2a8ff;
+}
+
+.pulse-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1px;
+  background: #21262d;
+}
+
+.pulse-card {
+  background: #161b22;
+  padding: 1rem;
+  text-align: center;
+}
+
+.pulse-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8b949e;
+  margin-bottom: 0.4rem;
+}
+
+.pulse-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.range-text {
+  font-size: 0.8rem;
+  color: #8b949e;
+}
+
+.sentiment-bar {
+  margin-top: 0.5rem;
+  height: 4px;
+  background: #21262d;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.sentiment-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+/* Chart Section */
+.chart-section {
+  margin-bottom: 1.5rem;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #161b22;
+}
+
+.chart-header {
+  background: #21262d;
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  font-size: 1rem;
+  color: #58a6ff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chart-btn {
+  background: #30363d;
+  border: 1px solid #484f58;
+  color: #e6edf3;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+
+.chart-btn:hover {
+  background: #484f58;
+}
+
+.chart-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.chart-date {
+  font-size: 0.85rem;
+  color: #8b949e;
+  min-width: 6rem;
+  text-align: center;
+}
+
+#bar-chart {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+}
+
+/* Day Cards */
 .day-card {
   margin-bottom: 1.5rem;
   border-radius: 6px;
   overflow: hidden;
   background: #161b22;
+  animation: fadeSlideIn 0.3s ease both;
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .day-header {
@@ -64,6 +190,15 @@ h1 {
   font-weight: 700;
   font-size: 1rem;
   color: #58a6ff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.day-sentiment {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #8b949e;
 }
 
 table {
@@ -89,6 +224,10 @@ td {
   padding: 0.65rem 1rem;
   border-top: 1px solid #21262d;
   font-size: 0.95rem;
+}
+
+tr {
+  transition: background 0.15s;
 }
 
 tr:hover {
@@ -120,6 +259,33 @@ tr.top-mover:hover {
   letter-spacing: 0.03em;
 }
 
+.streak-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.6rem;
+  font-weight: 700;
+  background: #d2a8ff;
+  color: #0d1117;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+/* Inline sparkline bar in table */
+.pct-bar-cell {
+  position: relative;
+}
+
+.pct-bar {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 18px;
+  opacity: 0.15;
+  border-radius: 2px;
+  transition: width 0.4s ease;
+}
+
 .positive {
   color: #3fb950;
 }
@@ -128,7 +294,33 @@ tr.top-mover:hover {
   color: #f85149;
 }
 
+/* Tooltip */
+.tooltip {
+  position: fixed;
+  background: #21262d;
+  border: 1px solid #484f58;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.15s;
+  max-width: 200px;
+}
+
+.tooltip.visible {
+  opacity: 1;
+}
+
+@media (max-width: 600px) {
+  .pulse-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 480px) {
   h1 { font-size: 1.4rem; }
   th, td { padding: 0.5rem 0.6rem; font-size: 0.85rem; }
+  .pulse-value { font-size: 1rem; }
 }

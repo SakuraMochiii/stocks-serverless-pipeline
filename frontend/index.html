@@ -13,6 +13,43 @@
       <p class="subtitle">Daily watchlist: AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA</p>
     </header>
 
+    <!-- Market Pulse Dashboard -->
+    <div id="market-pulse" class="market-pulse" hidden>
+      <div class="pulse-header">Market Pulse</div>
+      <div class="pulse-grid">
+        <div class="pulse-card">
+          <div class="pulse-label">Sentiment</div>
+          <div id="sentiment-value" class="pulse-value">--</div>
+          <div id="sentiment-bar" class="sentiment-bar"><div class="sentiment-fill"></div></div>
+        </div>
+        <div class="pulse-card">
+          <div class="pulse-label">Avg Volatility</div>
+          <div id="volatility-value" class="pulse-value">--</div>
+        </div>
+        <div class="pulse-card">
+          <div class="pulse-label">Top Mover Streak</div>
+          <div id="streak-value" class="pulse-value">--</div>
+        </div>
+        <div class="pulse-card">
+          <div class="pulse-label">Data Range</div>
+          <div id="range-value" class="pulse-value range-text">--</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bar Chart -->
+    <div id="chart-section" class="chart-section" hidden>
+      <div class="chart-header">
+        <span>Daily Performance</span>
+        <div class="chart-controls">
+          <button id="chart-prev" class="chart-btn" title="Previous day">&larr;</button>
+          <span id="chart-date" class="chart-date">--</span>
+          <button id="chart-next" class="chart-btn" title="Next day">&rarr;</button>
+        </div>
+      </div>
+      <canvas id="bar-chart" width="700" height="220"></canvas>
+    </div>
+
     <div id="loading" class="loading">Loading data...</div>
     <div id="error" class="error" hidden></div>
     <div id="days-container"></div>

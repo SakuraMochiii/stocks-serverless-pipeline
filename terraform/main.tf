@@ -23,3 +23,12 @@ module "frontend" {
   source       = "./modules/frontend"
   project_name = var.project_name
 }
+
+module "monitoring" {
+  source                  = "./modules/monitoring"
+  project_name            = var.project_name
+  ingestion_function_name = module.ingestion_lambda.function_name
+  api_function_name       = module.api_lambda.function_name
+  api_gateway_id          = module.api_lambda.api_gateway_id
+  dynamodb_table_name     = module.dynamodb.table_name
+}

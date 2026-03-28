@@ -69,11 +69,21 @@ resource "aws_apigatewayv2_api" "api" {
   protocol_type = "HTTP"
 
   cors_configuration {
-    allow_origins = ["*"]
-    allow_methods = ["GET", "OPTIONS"]
-    allow_headers = ["Content-Type"]
-    max_age       = 3600
+    allow_origins  = ["*"]
+    allow_methods  = ["GET", "OPTIONS"]
+    allow_headers  = ["Content-Type", "If-None-Match"]
+    expose_headers = ["ETag", "X-Total-Count", "X-Total-Dates", "X-Date-Range", "X-Response-Time", "X-Dates-Returned", "X-Offset", "X-Limit", "Cache-Control"]
+    max_age        = 3600
   }
+
+  tags = {
+    Project = var.project_name
+  }
+}
+
+resource "aws_cloudwatch_log_group" "api_gateway" {
+  name              = "/aws/apigateway/${var.project_name}-api"
+  retention_in_days = 14
 
   tags = {
     Project = var.project_name
@@ -84,6 +94,21 @@ resource "aws_apigatewayv2_stage" "default" {
   api_id      = aws_apigatewayv2_api.api.id
   name        = "$default"
   auto_deploy = true
+
+  access_log_settings {
+    destination_arn = aws_cloudwatch_log_group.api_gateway.arn
+    format = jsonencode({
+      requestId      = "$context.requestId"
+      ip             = "$context.identity.sourceIp"
+      requestTime    = "$context.requestTime"
+      httpMethod     = "$context.httpMethod"
+      routeKey       = "$context.routeKey"
+      status         = "$context.status"
+      protocol       = "$context.protocol"
+      responseLength = "$context.responseLength"
+      latency        = "$context.integrationLatency"
+    })
+  }
 }
 
 resource "aws_apigatewayv2_integration" "lambda" {
