@@ -1,22 +1,3 @@
-# CloudWatch Log Groups with retention policies
-resource "aws_cloudwatch_log_group" "ingestion" {
-  name              = "/aws/lambda/${var.ingestion_function_name}"
-  retention_in_days = 14
-
-  tags = {
-    Project = var.project_name
-  }
-}
-
-resource "aws_cloudwatch_log_group" "api" {
-  name              = "/aws/lambda/${var.api_function_name}"
-  retention_in_days = 14
-
-  tags = {
-    Project = var.project_name
-  }
-}
-
 # SNS Topic for alerts
 resource "aws_sns_topic" "alerts" {
   name = "${var.project_name}-alerts"
