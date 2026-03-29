@@ -4,6 +4,7 @@ const API_URL = "__API_URL__";
 let allGrouped = {};
 let allDates = [];
 let selectedHistoryIdx = 0;
+let selectedLineTicker = null; // null = show all
 
 // ── Consistent color per ticker ──
 const TICKER_COLORS = {
@@ -15,8 +16,24 @@ const TICKER_COLORS = {
   NVDA: "#f472b6",
 };
 
-// ── Line chart state for hover ──
-let lineChartState = null; // { dates, tickerList, series, pad, cw, ch, minVal, maxVal, xPos, yPos, w, h }
+// ── Company logos (Google favicon service) ──
+const TICKER_DOMAINS = {
+  AAPL: "apple.com",
+  MSFT: "microsoft.com",
+  GOOGL: "google.com",
+  AMZN: "amazon.com",
+  TSLA: "tesla.com",
+  NVDA: "nvidia.com",
+};
+
+function tickerIcon(ticker, size) {
+  const domain = TICKER_DOMAINS[ticker];
+  if (!domain) return "";
+  const url = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+  return `<img src="${url}" alt="${ticker}" class="ticker-icon" style="width:${size}px;height:${size}px" onerror="this.style.display='none'">`;
+}
+
+let lineChartState = null;
 
 // ── Helpers ──
 function formatDate(dateStr) {
@@ -47,7 +64,7 @@ async function fetchMovers() {
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
     const data = await resp.json();
-    loading.hidden = true;
+    loading.style.display = "none";
 
     if (data.length === 0) {
       error.textContent = "No data available yet. Check back after market close.";
@@ -65,20 +82,21 @@ async function fetchMovers() {
     renderMarketPulse();
     renderHero();
     renderCharts();
-    renderLineChart();
     renderTodayTable();
     renderLeaderboard();
+    renderLineChart();
     renderHistory();
-    initTableTooltips();
     initLineChartHover();
+    initPageTabs();
+    setupScrollReveal();
 
     window.addEventListener("resize", () => {
-      drawBarChart();
-      drawDonutChart();
-      drawLineChart();
+      drawBarChart(1);
+      drawDonutChart(1);
+      drawLineChart(selectedLineTicker);
     });
   } catch (err) {
-    loading.hidden = true;
+    loading.style.display = "none";
     error.textContent = `Failed to load data: ${err.message}`;
     error.hidden = false;
   }
@@ -109,7 +127,7 @@ function renderMarketPulse() {
   const streak = calcStreak();
   const streakEl = document.getElementById("streak-value");
   streakEl.textContent = streak.count > 1 ? `${streak.ticker} ${streak.count}d` : streak.ticker || "--";
-  streakEl.style.color = "var(--purple)";
+  streakEl.style.color = "var(--text)";
 
   const rangeEl = document.getElementById("range-value");
   if (allDates.length > 1) {
@@ -132,7 +150,7 @@ function calcStreak() {
   return { ticker: first.ticker, count };
 }
 
-// ── Hero ──
+// ── Hero (centered) ──
 function renderHero() {
   const el = document.getElementById("hero");
   const stocks = allGrouped[allDates[0]] || [];
@@ -145,8 +163,9 @@ function renderHero() {
   const sign = pct >= 0 ? "+" : "";
   const diff = top.close_price - top.open_price;
 
-  document.getElementById("hero-ticker").textContent = top.ticker;
-  document.getElementById("hero-ticker").style.color = tickerColor(top.ticker);
+  const heroTickerEl = document.getElementById("hero-ticker");
+  heroTickerEl.innerHTML = `${tickerIcon(top.ticker, 36)}${top.ticker}`;
+  heroTickerEl.style.color = tickerColor(top.ticker);
 
   const pctEl = document.getElementById("hero-pct");
   pctEl.textContent = `${sign}${pct.toFixed(2)}%`;
@@ -161,13 +180,32 @@ function renderHero() {
 }
 
 // ── Bar + Donut Charts ──
+let barAnimated = false;
+let donutAnimated = false;
+let barHoverAnimated = false;
+let donutHoverAnimated = false;
+
 function renderCharts() {
   document.getElementById("charts-row").hidden = false;
-  drawBarChart();
-  drawDonutChart();
+  barAnimated = false;
+  donutAnimated = false;
+  barHoverAnimated = false;
+  donutHoverAnimated = false;
+  animateBarChart();
+  animateDonutChart();
+
+  // Replay animation on hover
+  document.querySelector(".chart-card-main").addEventListener("mouseenter", () => {
+    animateBarChart();
+  });
+
+  document.querySelector(".chart-card-side").addEventListener("mouseenter", () => {
+    animateDonutChart();
+  });
 }
 
-function drawBarChart() {
+function drawBarChart(progress) {
+  const t = progress !== undefined ? progress : 1;
   const canvas = document.getElementById("bar-chart");
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
@@ -188,7 +226,7 @@ function drawBarChart() {
 
   const maxAbs = Math.max(...stocks.map((s) => Math.abs(s.pct_change)), 0.5);
   const labelW = 62;
-  const barGap = 8; // gap between bar end and zero axis
+  const barGap = 8;
   const pad = { top: 18, bottom: 26, left: 68, right: 16 };
   const cw = w - pad.left - pad.right;
   const barAreaW = (cw - labelW * 2) / 2;
@@ -197,8 +235,8 @@ function drawBarChart() {
   const gap = 5;
   const zeroX = pad.left + cw / 2;
 
-  // Grid lines
-  ctx.strokeStyle = "#243456";
+  // Grid
+  ctx.strokeStyle = "#2a2b33";
   ctx.lineWidth = 0.5;
   for (const frac of [-0.5, 0, 0.5]) {
     const x = zeroX + frac * (barAreaW * 2);
@@ -208,15 +246,14 @@ function drawBarChart() {
     ctx.stroke();
   }
 
-  // Zero axis
-  ctx.strokeStyle = "#3a5080";
+  ctx.strokeStyle = "#35363f";
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(zeroX, pad.top);
   ctx.lineTo(zeroX, h - pad.bottom);
   ctx.stroke();
 
-  ctx.fillStyle = "#5a6f8f";
+  ctx.fillStyle = "#7c7d88";
   ctx.font = "11px -apple-system, sans-serif";
   ctx.textAlign = "center";
   ctx.fillText(`-${maxAbs.toFixed(1)}%`, zeroX - barAreaW, h - 6);
@@ -224,49 +261,74 @@ function drawBarChart() {
   ctx.fillText(`+${maxAbs.toFixed(1)}%`, zeroX + barAreaW, h - 6);
 
   stocks.forEach((stock, i) => {
+    // Stagger each bar's animation
+    const barDelay = i * 0.08;
+    const barT = Math.max(0, Math.min(1, (t - barDelay) / (1 - barDelay * 0.5)));
+    const eased = 1 - Math.pow(1 - barT, 3); // ease-out cubic
+
     const y = pad.top + i * (barH + gap);
     const pct = stock.pct_change;
     const fullBarW = (Math.abs(pct) / maxAbs) * barAreaW;
-    const barW = Math.max(fullBarW - barGap, 2); // min 2px bar
+    const barW = Math.max((fullBarW - barGap) * eased, eased > 0 ? 2 : 0);
     const isPos = pct >= 0;
-    const color = stock.is_top_mover ? tickerColor(stock.ticker) : (isPos ? "#34d399" : "#f87171");
+    const color = isPos ? "#2dd4a0" : "#ef6b6b";
     const x = isPos ? zeroX + barGap : zeroX - barGap - barW;
 
-    ctx.fillStyle = color;
-    ctx.globalAlpha = stock.is_top_mover ? 1 : 0.6;
-    roundRect(ctx, x, y, barW, barH, 4);
-    ctx.fill();
-
-    if (stock.is_top_mover) {
-      ctx.shadowColor = color;
-      ctx.shadowBlur = 12;
+    if (barW > 0) {
+      ctx.fillStyle = color;
+      ctx.globalAlpha = (stock.is_top_mover ? 1 : 0.6) * Math.min(1, eased * 1.5);
       roundRect(ctx, x, y, barW, barH, 4);
       ctx.fill();
-      ctx.shadowBlur = 0;
-    }
-    ctx.globalAlpha = 1;
 
-    // Ticker label
+      if (stock.is_top_mover && eased > 0.5) {
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 12 * eased;
+        roundRect(ctx, x, y, barW, barH, 4);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    // Labels fade in
+    const labelAlpha = Math.min(1, eased * 2);
+    ctx.globalAlpha = labelAlpha;
+
     ctx.fillStyle = stock.is_top_mover ? "#fff" : "#9bafc5";
     ctx.font = `${stock.is_top_mover ? "bold " : ""}12px -apple-system, sans-serif`;
     ctx.textAlign = "right";
     ctx.fillText(stock.ticker, pad.left - 10, y + barH / 2 + 4);
 
-    // % label
-    const label = `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
-    ctx.fillStyle = color;
-    ctx.font = "11px -apple-system, sans-serif";
-    if (isPos) {
-      ctx.textAlign = "left";
-      ctx.fillText(label, x + barW + 6, y + barH / 2 + 4);
-    } else {
-      ctx.textAlign = "right";
-      ctx.fillText(label, x - 6, y + barH / 2 + 4);
+    if (eased > 0.3) {
+      const label = `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
+      ctx.fillStyle = stock.is_top_mover ? "#fff" : "#9bafc5";
+      ctx.font = "11px -apple-system, sans-serif";
+      if (isPos) {
+        ctx.textAlign = "left";
+        ctx.fillText(label, x + barW + 6, y + barH / 2 + 4);
+      } else {
+        ctx.textAlign = "right";
+        ctx.fillText(label, x - 6, y + barH / 2 + 4);
+      }
     }
+    ctx.globalAlpha = 1;
   });
 }
 
-function drawDonutChart() {
+function animateBarChart() {
+  const duration = 800;
+  const start = performance.now();
+  function frame(now) {
+    const t = Math.min(1, (now - start) / duration);
+    drawBarChart(t);
+    if (t < 1) requestAnimationFrame(frame);
+    else barAnimated = true;
+  }
+  requestAnimationFrame(frame);
+}
+
+function drawDonutChart(progress) {
+  const t = progress !== undefined ? progress : 1;
   const canvas = document.getElementById("donut-chart");
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
@@ -294,41 +356,103 @@ function drawDonutChart() {
   const innerR = r * 0.58;
 
   const slices = [
-    { val: gainers, color: "#34d399", label: "Gainers" },
-    { val: losers, color: "#f87171", label: "Losers" },
-    { val: flat, color: "#3a5080", label: "Flat" },
+    { val: gainers, color: "#2dd4a0", label: "Gainers" },
+    { val: losers, color: "#ef6b6b", label: "Losers" },
+    { val: flat, color: "#35363f", label: "Flat" },
   ].filter((s) => s.val > 0);
 
+  // Eased progress for the sweep
+  const eased = 1 - Math.pow(1 - t, 3);
+  const totalSweep = Math.PI * 2 * eased;
+
   let angle = -Math.PI / 2;
+  let drawn = 0;
   slices.forEach((slice) => {
-    const sweep = (slice.val / total) * Math.PI * 2;
+    const fullSweep = (slice.val / total) * Math.PI * 2;
+    const sweep = Math.min(fullSweep, Math.max(0, totalSweep - drawn));
+    if (sweep <= 0) return;
+
     ctx.beginPath();
     ctx.arc(cx, cy, r, angle, angle + sweep);
     ctx.arc(cx, cy, innerR, angle + sweep, angle, true);
     ctx.closePath();
     ctx.fillStyle = slice.color;
     ctx.fill();
+
+    drawn += sweep;
     angle += sweep;
   });
 
+  // Center text fades in at the end
+  const textAlpha = Math.max(0, (t - 0.6) / 0.4);
+  ctx.globalAlpha = textAlpha;
   ctx.fillStyle = "#fff";
   ctx.font = "bold 22px -apple-system, sans-serif";
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(`${gainers}/${total}`, cx, cy - 6);
-  ctx.fillStyle = "#7e8faa";
+  ctx.fillStyle = "#7c7d88";
   ctx.font = "11px -apple-system, sans-serif";
   ctx.fillText("gainers", cx, cy + 12);
+  ctx.globalAlpha = 1;
 
   document.getElementById("donut-legend").innerHTML = slices
     .map((s) => `<span class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${s.label}: ${s.val}</span>`)
     .join("");
 }
 
+function animateDonutChart() {
+  const duration = 900;
+  const start = performance.now();
+  function frame(now) {
+    const t = Math.min(1, (now - start) / duration);
+    drawDonutChart(t);
+    if (t < 1) requestAnimationFrame(frame);
+    else donutAnimated = true;
+  }
+  requestAnimationFrame(frame);
+}
+
 // ── Line Chart ──
 function renderLineChart() {
   document.getElementById("line-chart-section").hidden = false;
-  drawLineChart();
+  buildLineSelector();
+  drawLineChart(selectedLineTicker);
+}
+
+function buildLineSelector() {
+  const el = document.getElementById("line-selector");
+  const tickers = new Set();
+  allDates.forEach((d) => (allGrouped[d] || []).forEach((s) => tickers.add(s.ticker)));
+  const tickerList = [...tickers].sort();
+
+  const allBtn = `<button class="line-sel-btn-all ${selectedLineTicker === null ? "active" : ""}" data-ticker="__all__">All</button>`;
+  const btns = tickerList.map((t) => {
+    const c = tickerColor(t);
+    const active = selectedLineTicker === t ? "active" : "";
+    return `<button class="line-sel-btn ${active}" data-ticker="${t}" style="--sel-color:${c}"><span class="line-sel-dot" style="background:${c}"></span>${t}</button>`;
+  }).join("");
+
+  el.innerHTML = allBtn + btns;
+
+  el.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-ticker]");
+    if (!btn) return;
+    const ticker = btn.dataset.ticker;
+    if (ticker === "__all__") {
+      selectedLineTicker = null;
+    } else {
+      selectedLineTicker = selectedLineTicker === ticker ? null : ticker;
+    }
+    // Update button states
+    el.querySelectorAll(".line-sel-btn, .line-sel-btn-all").forEach((b) => b.classList.remove("active"));
+    if (selectedLineTicker === null) {
+      el.querySelector(".line-sel-btn-all").classList.add("active");
+    } else {
+      el.querySelector(`[data-ticker="${selectedLineTicker}"]`).classList.add("active");
+    }
+    drawLineChart(selectedLineTicker);
+  });
 }
 
 function niceInterval(range, steps) {
@@ -343,7 +467,7 @@ function niceInterval(range, steps) {
   return nice * mag;
 }
 
-function drawLineChart(hoveredTicker) {
+function drawLineChart(highlightTicker, hoverTicker) {
   const canvas = document.getElementById("line-chart");
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
@@ -373,7 +497,6 @@ function drawLineChart(hoveredTicker) {
     });
   });
 
-  // Compute range
   let dataMin = 0, dataMax = 0;
   tickerList.forEach((t) => {
     series[t].forEach((v) => {
@@ -384,7 +507,6 @@ function drawLineChart(hoveredTicker) {
     });
   });
 
-  // Nice regular intervals
   const interval = niceInterval(Math.max(dataMax - dataMin, 0.5), 5);
   const minVal = Math.floor(dataMin / interval) * interval - interval;
   const maxVal = Math.ceil(dataMax / interval) * interval + interval;
@@ -396,21 +518,21 @@ function drawLineChart(hoveredTicker) {
   function xPos(i) { return pad.left + (i / (dates.length - 1)) * cw; }
   function yPos(v) { return pad.top + (1 - (v - minVal) / (maxVal - minVal)) * ch; }
 
-  // Store state for hover
   lineChartState = { dates, tickerList, series, pad, cw, ch, minVal, maxVal, xPos, yPos, w, h };
 
-  // Y-axis grid + labels at regular intervals
+  // The active ticker is either the selected one or the hovered one
+  const activeTicker = hoverTicker || highlightTicker;
+
+  // Y-axis grid
   ctx.textAlign = "right";
-  for (let val = minVal; val <= maxVal; val += interval) {
+  for (let val = minVal; val <= maxVal + 0.001; val += interval) {
     const y = yPos(val);
     ctx.fillStyle = "#5a6f8f";
     ctx.font = "10px -apple-system, sans-serif";
     ctx.fillText(`${val.toFixed(1)}%`, pad.left - 6, y + 3);
-    ctx.strokeStyle = val === 0 ? "#4a6a9a" : "#1a2847";
-    ctx.lineWidth = val === 0 ? 1 : 0.5;
-    if (val === 0) {
-      ctx.setLineDash([5, 4]);
-    }
+    ctx.strokeStyle = Math.abs(val) < 0.001 ? "#4a6a9a" : "#1a2847";
+    ctx.lineWidth = Math.abs(val) < 0.001 ? 1 : 0.5;
+    if (Math.abs(val) < 0.001) ctx.setLineDash([5, 4]);
     ctx.beginPath();
     ctx.moveTo(pad.left, y);
     ctx.lineTo(w - pad.right, y);
@@ -430,11 +552,11 @@ function drawLineChart(hoveredTicker) {
   tickerList.forEach((ticker) => {
     const color = tickerColor(ticker);
     const data = series[ticker];
-    const isHovered = hoveredTicker === ticker;
-    const isDimmed = hoveredTicker && hoveredTicker !== ticker;
+    const isActive = activeTicker === ticker;
+    const isDimmed = activeTicker && activeTicker !== ticker;
 
-    // Glow pass (only for hovered)
-    if (isHovered) {
+    // Glow for active
+    if (isActive) {
       ctx.strokeStyle = color;
       ctx.lineWidth = 8;
       ctx.lineJoin = "round";
@@ -453,7 +575,7 @@ function drawLineChart(hoveredTicker) {
 
     // Main line
     ctx.strokeStyle = color;
-    ctx.lineWidth = isHovered ? 3 : 2;
+    ctx.lineWidth = isActive ? 3 : 2;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
     ctx.globalAlpha = isDimmed ? 0.15 : 1;
@@ -473,11 +595,11 @@ function drawLineChart(hoveredTicker) {
       const y = yPos(val);
       ctx.fillStyle = "#0f1a2e";
       ctx.beginPath();
-      ctx.arc(x, y, isHovered ? 6 : 4, 0, Math.PI * 2);
+      ctx.arc(x, y, isActive ? 6 : 4, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(x, y, isHovered ? 4 : 2.5, 0, Math.PI * 2);
+      ctx.arc(x, y, isActive ? 4 : 2.5, 0, Math.PI * 2);
       ctx.fill();
     });
 
@@ -489,7 +611,7 @@ function drawLineChart(hoveredTicker) {
     if (lastVal !== null) {
       ctx.fillStyle = color;
       ctx.globalAlpha = isDimmed ? 0.2 : 1;
-      ctx.font = `${isHovered ? "bold " : ""}11px -apple-system, sans-serif`;
+      ctx.font = `${isActive ? "bold " : ""}11px -apple-system, sans-serif`;
       ctx.textAlign = "left";
       ctx.fillText(ticker, xPos(lastIdx) + 8, yPos(lastVal) + 4);
       ctx.globalAlpha = 1;
@@ -509,7 +631,7 @@ function initLineChartHover() {
 
   canvas.addEventListener("mousemove", (e) => {
     if (!lineChartState) return;
-    const { dates, tickerList, series, pad, xPos, yPos, w } = lineChartState;
+    const { dates, tickerList, series, xPos, yPos } = lineChartState;
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
@@ -522,32 +644,42 @@ function initLineChartHover() {
       if (dist < minDist) { minDist = dist; nearestDateIdx = i; }
     });
 
-    // Find nearest ticker at that date
-    let nearestTicker = null;
-    let nearestDist = 30; // max snap distance
-    tickerList.forEach((t) => {
-      const val = series[t][nearestDateIdx];
-      if (val === null) return;
-      const dy = Math.abs(my - yPos(val));
-      if (dy < nearestDist) {
-        nearestDist = dy;
-        nearestTicker = t;
-      }
-    });
+    // If a ticker is selected, only show tooltip for that ticker
+    // Otherwise find nearest ticker
+    let hoverTarget = null;
 
-    if (nearestTicker) {
-      const val = series[nearestTicker][nearestDateIdx];
+    if (selectedLineTicker) {
+      const val = series[selectedLineTicker][nearestDateIdx];
+      if (val !== null) hoverTarget = selectedLineTicker;
+    } else {
+      let nearestDist = 30;
+      tickerList.forEach((t) => {
+        const val = series[t][nearestDateIdx];
+        if (val === null) return;
+        const dy = Math.abs(my - yPos(val));
+        if (dy < nearestDist) {
+          nearestDist = dy;
+          hoverTarget = t;
+        }
+      });
+    }
+
+    if (hoverTarget) {
+      const val = series[hoverTarget][nearestDateIdx];
       const sign = val >= 0 ? "+" : "";
+      const color = tickerColor(hoverTarget);
 
-      // Redraw with highlight
-      drawLineChart(nearestTicker);
+      // When a ticker is selected, keep it highlighted; hover just shows tooltip
+      // When no ticker selected, hover highlights the line
+      if (selectedLineTicker) {
+        drawLineChart(selectedLineTicker);
+      } else {
+        drawLineChart(null, hoverTarget);
+      }
 
-      // Show tooltip
-      const color = tickerColor(nearestTicker);
-      tooltipEl.innerHTML = `<span style="color:${color};font-weight:700">${nearestTicker}</span> &middot; ${shortDate(dates[nearestDateIdx])}<br><span style="color:${val >= 0 ? "var(--green)" : "var(--red)"}">${sign}${val.toFixed(2)}%</span>`;
+      tooltipEl.innerHTML = `<span style="color:${color};font-weight:700">${hoverTarget}</span> &middot; ${shortDate(dates[nearestDateIdx])}<br><span style="color:${val >= 0 ? "var(--green)" : "var(--red)"}">${sign}${val.toFixed(2)}%</span>`;
       tooltipEl.classList.add("visible");
 
-      // Position tooltip relative to card
       const cardRect = canvas.parentElement.getBoundingClientRect();
       let tx = e.clientX - cardRect.left + 16;
       let ty = e.clientY - cardRect.top - 10;
@@ -555,13 +687,13 @@ function initLineChartHover() {
       tooltipEl.style.left = tx + "px";
       tooltipEl.style.top = ty + "px";
     } else {
-      drawLineChart(null);
+      drawLineChart(selectedLineTicker);
       tooltipEl.classList.remove("visible");
     }
   });
 
   canvas.addEventListener("mouseleave", () => {
-    drawLineChart(null);
+    drawLineChart(selectedLineTicker);
     tooltipEl.classList.remove("visible");
   });
 }
@@ -581,12 +713,15 @@ function renderLeaderboard() {
 
   const wins = {};
   const winDates = {};
+  const winChanges = {};
   allDates.forEach((d) => {
     const top = getTopMover(allGrouped[d]);
     if (top) {
       wins[top.ticker] = (wins[top.ticker] || 0) + 1;
       if (!winDates[top.ticker]) winDates[top.ticker] = [];
+      if (!winChanges[top.ticker]) winChanges[top.ticker] = [];
       winDates[top.ticker].push(d);
+      winChanges[top.ticker].push(top.pct_change);
     }
   });
 
@@ -595,17 +730,23 @@ function renderLeaderboard() {
 
   document.getElementById("leaderboard-content").innerHTML = sorted
     .map(([ticker, count], i) => {
-      const dates = (winDates[ticker] || []).map(shortDate).join(", ");
+      const changes = winChanges[ticker] || [];
+      const dates = (winDates[ticker] || []).map((d, j) => {
+        const pct = changes[j];
+        const sign = pct >= 0 ? "+" : "";
+        const cls = pct >= 0 ? "positive" : "negative";
+        return `${shortDate(d)} <span class="${cls}">${sign}${pct.toFixed(2)}%</span>`;
+      }).join(", ");
       const color = tickerColor(ticker);
       return `
         <div class="lb-row ${i === 0 ? "lb-leader" : ""}">
           <div class="lb-rank">#${i + 1}</div>
-          <div class="lb-ticker" style="color:${color}">${ticker}</div>
+          <div class="lb-ticker">${tickerIcon(ticker, 22)}${ticker}</div>
           <div class="lb-info">
             <div class="lb-wins">${count} win${count !== 1 ? "s" : ""} out of ${allDates.length} days</div>
             <div class="lb-dates">${dates}</div>
           </div>
-          <div class="lb-bar-track"><div class="lb-bar-fill" style="width:${(count / maxWins) * 100}%;background:${color}"></div></div>
+          <div class="lb-bar-track"><div class="lb-bar-fill" style="width:${(count / maxWins) * 100}%"></div></div>
         </div>`;
     })
     .join("");
@@ -640,7 +781,11 @@ function renderHistory() {
 
 function renderHistoryTable(historyDates) {
   const date = historyDates[selectedHistoryIdx];
-  document.getElementById("history-table").innerHTML = buildTable(allGrouped[date] || [], selectedHistoryIdx + 1);
+  const el = document.getElementById("history-table");
+  el.innerHTML = buildTable(allGrouped[date] || [], selectedHistoryIdx + 1);
+  el.classList.remove("table-animate");
+  void el.offsetWidth;
+  el.classList.add("table-animate");
 }
 
 // ── Shared Table Builder ──
@@ -669,11 +814,8 @@ function buildTable(stocks, dateIdx) {
 
       const barPct = Math.min((Math.abs(pct) / maxAbs) * 100, 100);
       const barColor = pct >= 0 ? "var(--green)" : "var(--red)";
-      const hoverColor = tickerColor(item.ticker);
 
-      // Default: top mover shows in accent blue, rest in white.
-      // On hover: show the ticker's assigned color.
-      return `<tr class="${isTop}" data-ticker="${item.ticker}" data-pct="${pct}" data-open="${item.open_price}" data-close="${item.close_price}" data-color="${hoverColor}">
+      return `<tr class="${isTop}" data-ticker="${item.ticker}" data-pct="${pct}" data-open="${item.open_price}" data-close="${item.close_price}">
         <td class="ticker">${item.ticker}${badge}${streakBadge}</td>
         <td class="pct-bar-cell ${cls}">
           <span class="pct-bar-wrap"><span class="pct-bar" style="width:${barPct}%;background:${barColor}"></span></span>
@@ -717,54 +859,84 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// ── Table Row Hover (show ticker color) ──
-function initTableTooltips() {
-  const tooltip = document.getElementById("tooltip");
+// ── Page Tabs ──
+let currentTab = "overview";
 
-  document.addEventListener("mouseover", (e) => {
-    const row = e.target.closest("tr[data-ticker]");
-    if (!row) {
-      tooltip.classList.remove("visible");
-      return;
+function initPageTabs() {
+  const tabBar = document.getElementById("page-tabs");
+  tabBar.hidden = false;
+
+  tabBar.addEventListener("click", (e) => {
+    const btn = e.target.closest(".page-tab");
+    if (!btn) return;
+
+    const tab = btn.dataset.tab;
+    if (tab === currentTab) return;
+
+    const goingRight = tab === "history";
+    const prevTab = currentTab;
+    currentTab = tab;
+
+    tabBar.querySelectorAll(".page-tab").forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    // Hide old tab
+    const oldEl = document.getElementById(`tab-${prevTab}`);
+    oldEl.style.display = "none";
+
+    // Show new tab with directional animation
+    const newEl = document.getElementById(`tab-${tab}`);
+    newEl.style.display = "";
+    newEl.classList.remove("enter-left", "enter-right", "animate");
+
+    // Force reflow to restart animation
+    void newEl.offsetWidth;
+
+    newEl.classList.add(goingRight ? "enter-right" : "enter-left", "animate");
+
+    // Re-animate charts on tab switch and reveal hidden cards
+    setTimeout(() => {
+      if (tab === "overview") {
+        animateBarChart();
+        animateDonutChart();
+      } else {
+        drawLineChart(selectedLineTicker);
+      }
+      // Animate cards in the new tab with stagger
+      newEl.querySelectorAll(".card:not(.visible)").forEach((c, i) => {
+        c.classList.add("scroll-reveal");
+        setTimeout(() => c.classList.add("visible"), i * 200);
+      });
+    }, 10);
+  });
+}
+
+// ── Scroll Reveal ──
+function setupScrollReveal() {
+  const els = document.querySelectorAll("#tab-overview .card, .hero-card, #market-pulse");
+
+  // Cards already in viewport on load: leave them visible (no animation)
+  // Cards below the fold: hide them, animate in when scrolled to
+  els.forEach((el) => {
+    const rect = el.getBoundingClientRect();
+    if (rect.top > window.innerHeight) {
+      el.classList.add("scroll-reveal");
     }
-
-    const color = row.dataset.color;
-    if (color) {
-      row.style.background = color.replace(")", ", 0.1)").replace("rgb", "rgba");
-      // Set ticker text color
-      const tickerTd = row.querySelector(".ticker");
-      if (tickerTd) tickerTd.style.color = color;
-    }
-
-    const ticker = row.dataset.ticker;
-    const pct = parseFloat(row.dataset.pct);
-    const open = parseFloat(row.dataset.open);
-    const close = parseFloat(row.dataset.close);
-    const diff = close - open;
-
-    tooltip.innerHTML = `<strong style="color:${color}">${ticker}</strong><br>` +
-      `Move: ${diff >= 0 ? "+$" : "-$"}${Math.abs(diff).toFixed(2)}<br>` +
-      `$${open.toFixed(2)} &rarr; $${close.toFixed(2)}`;
-    tooltip.classList.add("visible");
   });
 
-  document.addEventListener("mousemove", (e) => {
-    tooltip.style.left = e.clientX + 14 + "px";
-    tooltip.style.top = e.clientY - 12 + "px";
-  });
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.1 }
+  );
 
-  document.addEventListener("mouseout", (e) => {
-    const row = e.target.closest("tr[data-ticker]");
-    if (row) {
-      // Reset to default colors
-      row.style.background = "";
-      const tickerTd = row.querySelector(".ticker");
-      if (tickerTd) tickerTd.style.color = "";
-    }
-    if (!e.relatedTarget || !e.relatedTarget.closest("tr[data-ticker]")) {
-      tooltip.classList.remove("visible");
-    }
-  });
+  document.querySelectorAll(".scroll-reveal").forEach((el) => observer.observe(el));
 }
 
 fetchMovers();

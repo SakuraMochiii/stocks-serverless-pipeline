@@ -4,16 +4,26 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stock Top Movers</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="grain"></div>
+
   <div class="container">
     <header>
-      <h1>Stock Top Movers</h1>
-      <p class="subtitle">Daily watchlist: AAPL, MSFT, GOOGL, AMZN, TSLA, NVDA</p>
+      <p class="eyebrow">Daily Watchlist</p>
+      <h1>Top Movers</h1>
+      <p class="subtitle">AAPL &middot; MSFT &middot; GOOGL &middot; AMZN &middot; TSLA &middot; NVDA</p>
     </header>
 
-    <div id="loading" class="loading">Loading data...</div>
+    <div id="loading" class="loading">
+      <div class="loading-dot"></div>
+      <div class="loading-dot"></div>
+      <div class="loading-dot"></div>
+    </div>
     <div id="error" class="error" hidden></div>
 
     <!-- Market Pulse -->
@@ -44,64 +54,76 @@
 
     <!-- Today's Top Mover Hero -->
     <div id="hero" class="hero-card" hidden>
-      <div class="hero-left">
+      <div class="hero-inner">
         <div class="hero-label">Today's Top Mover</div>
         <div id="hero-ticker" class="hero-ticker">--</div>
         <div id="hero-pct" class="hero-pct">--</div>
-      </div>
-      <div class="hero-right">
-        <div class="hero-detail"><span class="hero-detail-label">Open</span> <span id="hero-open">--</span></div>
-        <div class="hero-detail"><span class="hero-detail-label">Close</span> <span id="hero-close">--</span></div>
-        <div class="hero-detail"><span class="hero-detail-label">Move</span> <span id="hero-move">--</span></div>
-      </div>
-    </div>
-
-    <!-- Charts Row -->
-    <div id="charts-row" class="charts-row" hidden>
-      <div class="card chart-card-main">
-        <div class="card-header">Daily Performance</div>
-        <canvas id="bar-chart" height="240"></canvas>
-      </div>
-      <div class="card chart-card-side">
-        <div class="card-header">Gainers vs Losers</div>
-        <canvas id="donut-chart" height="160"></canvas>
-        <div id="donut-legend" class="donut-legend"></div>
+        <div class="hero-details">
+          <div class="hero-detail"><span class="hero-detail-label">Open</span> <span id="hero-open">--</span></div>
+          <div class="hero-detail"><span class="hero-detail-label">Close</span> <span id="hero-close">--</span></div>
+          <div class="hero-detail"><span class="hero-detail-label">Move</span> <span id="hero-move">--</span></div>
+        </div>
       </div>
     </div>
 
-    <!-- Line Chart -->
-    <div id="line-chart-section" class="card line-chart-card" hidden>
-      <div class="card-header">Performance Over Time</div>
-      <canvas id="line-chart" height="260"></canvas>
-      <div id="line-tooltip" class="line-tooltip"></div>
-      <div id="line-legend" class="line-legend"></div>
+    <!-- Page Tabs -->
+    <div id="page-tabs" class="page-tabs" hidden>
+      <button class="page-tab active" data-tab="overview">Overview</button>
+      <button class="page-tab" data-tab="history">History</button>
     </div>
 
-    <!-- Today's Full Table -->
-    <div id="today-card" class="card" hidden>
-      <div class="card-header">
-        <span id="today-header">All Stocks</span>
+    <!-- Overview Tab -->
+    <div id="tab-overview" class="tab-content">
+      <div id="charts-row" class="charts-row" hidden>
+        <div class="card chart-card-main">
+          <div class="card-header">Daily Performance</div>
+          <canvas id="bar-chart" height="240"></canvas>
+        </div>
+        <div class="card chart-card-side">
+          <div class="card-header">Gainers vs Losers</div>
+          <canvas id="donut-chart" height="160"></canvas>
+          <div id="donut-legend" class="donut-legend"></div>
+        </div>
       </div>
-      <div id="today-table"></div>
-    </div>
 
-    <!-- Leaderboard -->
-    <div id="leaderboard" class="card" hidden>
-      <div class="card-header">Top Mover Leaderboard</div>
-      <div id="leaderboard-content" class="leaderboard-list"></div>
-    </div>
-
-    <!-- History -->
-    <div id="history-section" class="card" hidden>
-      <div class="card-header">
-        <span>History</span>
+      <div id="today-card" class="card" hidden>
+        <div class="card-header">
+          <span id="today-header">All Stocks</span>
+        </div>
+        <div id="today-table"></div>
       </div>
-      <div id="history-tabs" class="history-tabs"></div>
-      <div id="history-table"></div>
+
+      <div id="leaderboard" class="card" hidden>
+        <div class="card-header">Top Mover Leaderboard</div>
+        <div id="leaderboard-content" class="leaderboard-list"></div>
+      </div>
+
     </div>
+
+    <!-- History Tab -->
+    <div id="tab-history" class="tab-content" style="display:none">
+      <div id="line-chart-section" class="card line-chart-card" hidden>
+        <div class="card-header">Performance Over Time</div>
+        <div id="line-selector" class="line-selector"></div>
+        <canvas id="line-chart" height="260"></canvas>
+        <div id="line-tooltip" class="line-tooltip"></div>
+        <div id="line-legend" class="line-legend"></div>
+      </div>
+
+      <div id="history-section" class="card" hidden>
+        <div class="card-header">
+          <span>Historical Data</span>
+        </div>
+        <div id="history-tabs" class="history-tabs"></div>
+        <div id="history-table"></div>
+      </div>
+    </div>
+
+    <footer>
+      <p>Data from Massive API &middot; Updated daily after market close</p>
+    </footer>
   </div>
 
-  <div id="tooltip" class="tooltip"></div>
   <script src="app.js"></script>
 </body>
 </html>
