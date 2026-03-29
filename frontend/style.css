@@ -130,30 +130,20 @@ h1 {
   line-height: 1.4;
 }
 
-.sentiment-bar {
-  margin-top: 0.5rem;
-  height: 4px;
-  background: var(--border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.sentiment-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.6s ease;
-}
-
 /* ── Hero Card ── */
 .hero-card {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 2rem;
   background: linear-gradient(135deg, var(--card-header), var(--card));
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 1.4rem 1.6rem;
+  padding: 1.2rem 1.4rem;
   margin-bottom: 1.2rem;
+}
+
+.hero-left {
+  flex: 0 0 auto;
 }
 
 .hero-label {
@@ -177,10 +167,8 @@ h1 {
 }
 
 .hero-right {
-  text-align: right;
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  gap: 1.5rem;
 }
 
 .hero-detail {
@@ -189,9 +177,10 @@ h1 {
 
 .hero-detail-label {
   color: var(--text-muted);
-  font-size: 0.75rem;
-  margin-right: 0.4rem;
+  font-size: 0.7rem;
+  display: block;
   text-transform: uppercase;
+  margin-bottom: 0.1rem;
 }
 
 /* ── Charts Row ── */
@@ -398,16 +387,8 @@ tr {
   transition: background 0.12s;
 }
 
-tr:hover {
-  background: var(--accent-glow);
-}
-
 tr.top-mover {
   background: rgba(91, 160, 245, 0.07);
-}
-
-tr.top-mover:hover {
-  background: rgba(91, 160, 245, 0.13);
 }
 
 .ticker {
@@ -444,20 +425,22 @@ tr.top-mover:hover {
 }
 
 .pct-bar-wrap {
+  display: block;
   position: absolute;
   top: 50%;
   left: 0.75rem;
   right: 0.75rem;
   transform: translateY(-50%);
-  height: 18px;
+  height: 20px;
   overflow: hidden;
+  pointer-events: none;
 }
 
 .pct-bar {
+  display: block;
   height: 100%;
-  opacity: 0.15;
-  border-radius: 2px;
-  transition: width 0.4s ease;
+  opacity: 0.2;
+  border-radius: 3px;
 }
 
 .pct-text {
@@ -475,10 +458,15 @@ tr.top-mover:hover {
 }
 
 /* ── Line Chart ── */
+.line-chart-card {
+  position: relative;
+}
+
 .line-chart-card canvas {
   display: block;
   width: 100%;
   padding: 0.6rem;
+  cursor: crosshair;
 }
 
 .line-legend {
@@ -495,19 +483,33 @@ tr.top-mover:hover {
   align-items: center;
   gap: 0.3rem;
   color: var(--text-muted);
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.line-legend-item:hover {
-  opacity: 0.8;
 }
 
 .line-legend-swatch {
-  width: 14px;
-  height: 3px;
+  width: 18px;
+  height: 4px;
   border-radius: 2px;
   display: inline-block;
+}
+
+/* ── Line chart tooltip ── */
+.line-tooltip {
+  position: absolute;
+  background: var(--card-header);
+  border: 1px solid var(--border);
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.12s;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  white-space: nowrap;
+}
+
+.line-tooltip.visible {
+  opacity: 1;
 }
 
 /* ── Tooltip ── */
@@ -552,8 +554,7 @@ tr.top-mover:hover {
   }
   .hero-right {
     text-align: center;
-    flex-direction: row;
-    gap: 1rem;
+    justify-content: center;
   }
 }
 

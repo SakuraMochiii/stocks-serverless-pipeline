@@ -5,7 +5,7 @@ let allGrouped = {};
 let allDates = [];
 let selectedHistoryIdx = 0;
 
-// ── Color palette for line chart ──
+// ── Consistent color per ticker ──
 const TICKER_COLORS = {
   AAPL: "#5ba0f5",
   MSFT: "#34d399",
@@ -14,6 +14,9 @@ const TICKER_COLORS = {
   TSLA: "#c4a5f7",
   NVDA: "#f472b6",
 };
+
+// ── Line chart state for hover ──
+let lineChartState = null; // { dates, tickerList, series, pad, cw, ch, minVal, maxVal, xPos, yPos, w, h }
 
 // ── Helpers ──
 function formatDate(dateStr) {
@@ -28,6 +31,10 @@ function shortDate(dateStr) {
 
 function getTopMover(stocks) {
   return stocks.find((s) => s.is_top_mover);
+}
+
+function tickerColor(ticker) {
+  return TICKER_COLORS[ticker] || "#5ba0f5";
 }
 
 // ── Main ──
@@ -62,7 +69,8 @@ async function fetchMovers() {
     renderTodayTable();
     renderLeaderboard();
     renderHistory();
-    initTooltips();
+    initTableTooltips();
+    initLineChartHover();
 
     window.addEventListener("resize", () => {
       drawBarChart();
@@ -92,10 +100,6 @@ function renderMarketPulse() {
   const sentimentEl = document.getElementById("sentiment-value");
   sentimentEl.textContent = `${gainers}/${total} Up`;
   sentimentEl.className = `pulse-value ${sentimentPct >= 50 ? "positive" : "negative"}`;
-
-  const fill = document.getElementById("sentiment-fill");
-  fill.style.width = `${sentimentPct}%`;
-  fill.style.background = sentimentPct >= 50 ? "var(--green)" : "var(--red)";
 
   const avgVol = stocks.reduce((sum, s) => sum + Math.abs(s.pct_change), 0) / (total || 1);
   const volEl = document.getElementById("volatility-value");
@@ -142,7 +146,7 @@ function renderHero() {
   const diff = top.close_price - top.open_price;
 
   document.getElementById("hero-ticker").textContent = top.ticker;
-  document.getElementById("hero-ticker").style.color = pct >= 0 ? "var(--green)" : "var(--red)";
+  document.getElementById("hero-ticker").style.color = tickerColor(top.ticker);
 
   const pctEl = document.getElementById("hero-pct");
   pctEl.textContent = `${sign}${pct.toFixed(2)}%`;
@@ -183,8 +187,11 @@ function drawBarChart() {
   if (stocks.length === 0) return;
 
   const maxAbs = Math.max(...stocks.map((s) => Math.abs(s.pct_change)), 0.5);
-  const pad = { top: 18, bottom: 26, left: 68, right: 24 };
+  const labelW = 62;
+  const barGap = 8; // gap between bar end and zero axis
+  const pad = { top: 18, bottom: 26, left: 68, right: 16 };
   const cw = w - pad.left - pad.right;
+  const barAreaW = (cw - labelW * 2) / 2;
   const ch = h - pad.top - pad.bottom;
   const barH = Math.min(30, (ch - (stocks.length - 1) * 5) / stocks.length);
   const gap = 5;
@@ -194,13 +201,14 @@ function drawBarChart() {
   ctx.strokeStyle = "#243456";
   ctx.lineWidth = 0.5;
   for (const frac of [-0.5, 0, 0.5]) {
-    const x = zeroX + frac * cw;
+    const x = zeroX + frac * (barAreaW * 2);
     ctx.beginPath();
     ctx.moveTo(x, pad.top);
     ctx.lineTo(x, h - pad.bottom);
     ctx.stroke();
   }
 
+  // Zero axis
   ctx.strokeStyle = "#3a5080";
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -211,17 +219,18 @@ function drawBarChart() {
   ctx.fillStyle = "#5a6f8f";
   ctx.font = "11px -apple-system, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(`-${maxAbs.toFixed(1)}%`, pad.left, h - 6);
+  ctx.fillText(`-${maxAbs.toFixed(1)}%`, zeroX - barAreaW, h - 6);
   ctx.fillText("0%", zeroX, h - 6);
-  ctx.fillText(`+${maxAbs.toFixed(1)}%`, w - pad.right, h - 6);
+  ctx.fillText(`+${maxAbs.toFixed(1)}%`, zeroX + barAreaW, h - 6);
 
   stocks.forEach((stock, i) => {
     const y = pad.top + i * (barH + gap);
     const pct = stock.pct_change;
-    const barW = (Math.abs(pct) / maxAbs) * (cw / 2);
+    const fullBarW = (Math.abs(pct) / maxAbs) * barAreaW;
+    const barW = Math.max(fullBarW - barGap, 2); // min 2px bar
     const isPos = pct >= 0;
-    const color = isPos ? "#34d399" : "#f87171";
-    const x = isPos ? zeroX : zeroX - barW;
+    const color = stock.is_top_mover ? tickerColor(stock.ticker) : (isPos ? "#34d399" : "#f87171");
+    const x = isPos ? zeroX + barGap : zeroX - barGap - barW;
 
     ctx.fillStyle = color;
     ctx.globalAlpha = stock.is_top_mover ? 1 : 0.6;
@@ -237,15 +246,23 @@ function drawBarChart() {
     }
     ctx.globalAlpha = 1;
 
+    // Ticker label
     ctx.fillStyle = stock.is_top_mover ? "#fff" : "#9bafc5";
     ctx.font = `${stock.is_top_mover ? "bold " : ""}12px -apple-system, sans-serif`;
     ctx.textAlign = "right";
     ctx.fillText(stock.ticker, pad.left - 10, y + barH / 2 + 4);
 
+    // % label
+    const label = `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
     ctx.fillStyle = color;
     ctx.font = "11px -apple-system, sans-serif";
-    ctx.textAlign = isPos ? "left" : "right";
-    ctx.fillText(`${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`, isPos ? zeroX + barW + 6 : zeroX - barW - 6, y + barH / 2 + 4);
+    if (isPos) {
+      ctx.textAlign = "left";
+      ctx.fillText(label, x + barW + 6, y + barH / 2 + 4);
+    } else {
+      ctx.textAlign = "right";
+      ctx.fillText(label, x - 6, y + barH / 2 + 4);
+    }
   });
 }
 
@@ -303,8 +320,7 @@ function drawDonutChart() {
   ctx.font = "11px -apple-system, sans-serif";
   ctx.fillText("gainers", cx, cy + 12);
 
-  const legend = document.getElementById("donut-legend");
-  legend.innerHTML = slices
+  document.getElementById("donut-legend").innerHTML = slices
     .map((s) => `<span class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${s.label}: ${s.val}</span>`)
     .join("");
 }
@@ -315,7 +331,19 @@ function renderLineChart() {
   drawLineChart();
 }
 
-function drawLineChart() {
+function niceInterval(range, steps) {
+  const raw = range / steps;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const norm = raw / mag;
+  let nice;
+  if (norm <= 1.5) nice = 1;
+  else if (norm <= 3) nice = 2;
+  else if (norm <= 7) nice = 5;
+  else nice = 10;
+  return nice * mag;
+}
+
+function drawLineChart(hoveredTicker) {
   const canvas = document.getElementById("line-chart");
   const ctx = canvas.getContext("2d");
   const dpr = window.devicePixelRatio || 1;
@@ -330,16 +358,13 @@ function drawLineChart() {
   const h = 260;
   ctx.clearRect(0, 0, w, h);
 
-  // Dates oldest to newest for left-to-right plotting
   const dates = [...allDates].reverse();
   if (dates.length < 2) return;
 
-  // Collect all tickers
   const tickers = new Set();
   dates.forEach((d) => (allGrouped[d] || []).forEach((s) => tickers.add(s.ticker)));
   const tickerList = [...tickers].sort();
 
-  // Build data series: ticker -> [{date, pct}]
   const series = {};
   tickerList.forEach((t) => {
     series[t] = dates.map((d) => {
@@ -349,60 +374,48 @@ function drawLineChart() {
   });
 
   // Compute range
-  let minVal = 0, maxVal = 0;
+  let dataMin = 0, dataMax = 0;
   tickerList.forEach((t) => {
     series[t].forEach((v) => {
       if (v !== null) {
-        minVal = Math.min(minVal, v);
-        maxVal = Math.max(maxVal, v);
+        dataMin = Math.min(dataMin, v);
+        dataMax = Math.max(dataMax, v);
       }
     });
   });
-  const range = Math.max(maxVal - minVal, 1);
-  const padY = range * 0.15;
-  minVal -= padY;
-  maxVal += padY;
 
-  const pad = { top: 20, bottom: 36, left: 52, right: 16 };
+  // Nice regular intervals
+  const interval = niceInterval(Math.max(dataMax - dataMin, 0.5), 5);
+  const minVal = Math.floor(dataMin / interval) * interval - interval;
+  const maxVal = Math.ceil(dataMax / interval) * interval + interval;
+
+  const pad = { top: 20, bottom: 36, left: 52, right: 54 };
   const cw = w - pad.left - pad.right;
   const ch = h - pad.top - pad.bottom;
 
   function xPos(i) { return pad.left + (i / (dates.length - 1)) * cw; }
   function yPos(v) { return pad.top + (1 - (v - minVal) / (maxVal - minVal)) * ch; }
 
-  // Zero line
-  if (minVal < 0 && maxVal > 0) {
-    const zy = yPos(0);
-    ctx.strokeStyle = "#3a5080";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
-    ctx.beginPath();
-    ctx.moveTo(pad.left, zy);
-    ctx.lineTo(w - pad.right, zy);
-    ctx.stroke();
-    ctx.setLineDash([]);
+  // Store state for hover
+  lineChartState = { dates, tickerList, series, pad, cw, ch, minVal, maxVal, xPos, yPos, w, h };
 
+  // Y-axis grid + labels at regular intervals
+  ctx.textAlign = "right";
+  for (let val = minVal; val <= maxVal; val += interval) {
+    const y = yPos(val);
     ctx.fillStyle = "#5a6f8f";
     ctx.font = "10px -apple-system, sans-serif";
-    ctx.textAlign = "right";
-    ctx.fillText("0%", pad.left - 6, zy + 3);
-  }
-
-  // Y-axis labels
-  ctx.fillStyle = "#5a6f8f";
-  ctx.font = "10px -apple-system, sans-serif";
-  ctx.textAlign = "right";
-  const ySteps = 4;
-  for (let i = 0; i <= ySteps; i++) {
-    const val = minVal + (i / ySteps) * (maxVal - minVal);
-    const y = yPos(val);
     ctx.fillText(`${val.toFixed(1)}%`, pad.left - 6, y + 3);
-    ctx.strokeStyle = "#1a2847";
-    ctx.lineWidth = 0.5;
+    ctx.strokeStyle = val === 0 ? "#4a6a9a" : "#1a2847";
+    ctx.lineWidth = val === 0 ? 1 : 0.5;
+    if (val === 0) {
+      ctx.setLineDash([5, 4]);
+    }
     ctx.beginPath();
     ctx.moveTo(pad.left, y);
     ctx.lineTo(w - pad.right, y);
     ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   // X-axis labels
@@ -415,43 +428,142 @@ function drawLineChart() {
 
   // Draw lines
   tickerList.forEach((ticker) => {
-    const color = TICKER_COLORS[ticker] || "#5ba0f5";
+    const color = tickerColor(ticker);
     const data = series[ticker];
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2;
-    ctx.lineJoin = "round";
-    ctx.beginPath();
+    const isHovered = hoveredTicker === ticker;
+    const isDimmed = hoveredTicker && hoveredTicker !== ticker;
 
+    // Glow pass (only for hovered)
+    if (isHovered) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 8;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.globalAlpha = 0.25;
+      ctx.beginPath();
+      let started = false;
+      data.forEach((val, i) => {
+        if (val === null) return;
+        if (!started) { ctx.moveTo(xPos(i), yPos(val)); started = true; }
+        else ctx.lineTo(xPos(i), yPos(val));
+      });
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    // Main line
+    ctx.strokeStyle = color;
+    ctx.lineWidth = isHovered ? 3 : 2;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.globalAlpha = isDimmed ? 0.15 : 1;
+    ctx.beginPath();
     let started = false;
     data.forEach((val, i) => {
       if (val === null) return;
-      const x = xPos(i);
-      const y = yPos(val);
-      if (!started) { ctx.moveTo(x, y); started = true; }
-      else ctx.lineTo(x, y);
+      if (!started) { ctx.moveTo(xPos(i), yPos(val)); started = true; }
+      else ctx.lineTo(xPos(i), yPos(val));
     });
     ctx.stroke();
 
-    // Draw dots
+    // Dots
     data.forEach((val, i) => {
       if (val === null) return;
       const x = xPos(i);
       const y = yPos(val);
+      ctx.fillStyle = "#0f1a2e";
+      ctx.beginPath();
+      ctx.arc(x, y, isHovered ? 6 : 4, 0, Math.PI * 2);
+      ctx.fill();
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.arc(x, y, isHovered ? 4 : 2.5, 0, Math.PI * 2);
       ctx.fill();
     });
+
+    ctx.globalAlpha = 1;
+
+    // Ticker label at end
+    const lastVal = data.findLast((v) => v !== null);
+    const lastIdx = data.lastIndexOf(lastVal);
+    if (lastVal !== null) {
+      ctx.fillStyle = color;
+      ctx.globalAlpha = isDimmed ? 0.2 : 1;
+      ctx.font = `${isHovered ? "bold " : ""}11px -apple-system, sans-serif`;
+      ctx.textAlign = "left";
+      ctx.fillText(ticker, xPos(lastIdx) + 8, yPos(lastVal) + 4);
+      ctx.globalAlpha = 1;
+    }
   });
 
   // Legend
-  const legendEl = document.getElementById("line-legend");
-  legendEl.innerHTML = tickerList
-    .map((t) => {
-      const c = TICKER_COLORS[t] || "#5ba0f5";
-      return `<span class="line-legend-item"><span class="line-legend-swatch" style="background:${c}"></span>${t}</span>`;
-    })
+  document.getElementById("line-legend").innerHTML = tickerList
+    .map((t) => `<span class="line-legend-item"><span class="line-legend-swatch" style="background:${tickerColor(t)}"></span>${t}</span>`)
     .join("");
+}
+
+// ── Line Chart Hover ──
+function initLineChartHover() {
+  const canvas = document.getElementById("line-chart");
+  const tooltipEl = document.getElementById("line-tooltip");
+
+  canvas.addEventListener("mousemove", (e) => {
+    if (!lineChartState) return;
+    const { dates, tickerList, series, pad, xPos, yPos, w } = lineChartState;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Find nearest date column
+    let nearestDateIdx = 0;
+    let minDist = Infinity;
+    dates.forEach((d, i) => {
+      const dist = Math.abs(mx - xPos(i));
+      if (dist < minDist) { minDist = dist; nearestDateIdx = i; }
+    });
+
+    // Find nearest ticker at that date
+    let nearestTicker = null;
+    let nearestDist = 30; // max snap distance
+    tickerList.forEach((t) => {
+      const val = series[t][nearestDateIdx];
+      if (val === null) return;
+      const dy = Math.abs(my - yPos(val));
+      if (dy < nearestDist) {
+        nearestDist = dy;
+        nearestTicker = t;
+      }
+    });
+
+    if (nearestTicker) {
+      const val = series[nearestTicker][nearestDateIdx];
+      const sign = val >= 0 ? "+" : "";
+
+      // Redraw with highlight
+      drawLineChart(nearestTicker);
+
+      // Show tooltip
+      const color = tickerColor(nearestTicker);
+      tooltipEl.innerHTML = `<span style="color:${color};font-weight:700">${nearestTicker}</span> &middot; ${shortDate(dates[nearestDateIdx])}<br><span style="color:${val >= 0 ? "var(--green)" : "var(--red)"}">${sign}${val.toFixed(2)}%</span>`;
+      tooltipEl.classList.add("visible");
+
+      // Position tooltip relative to card
+      const cardRect = canvas.parentElement.getBoundingClientRect();
+      let tx = e.clientX - cardRect.left + 16;
+      let ty = e.clientY - cardRect.top - 10;
+      if (tx + 140 > cardRect.width) tx = tx - 160;
+      tooltipEl.style.left = tx + "px";
+      tooltipEl.style.top = ty + "px";
+    } else {
+      drawLineChart(null);
+      tooltipEl.classList.remove("visible");
+    }
+  });
+
+  canvas.addEventListener("mouseleave", () => {
+    drawLineChart(null);
+    tooltipEl.classList.remove("visible");
+  });
 }
 
 // ── Today Table ──
@@ -467,7 +579,6 @@ function renderLeaderboard() {
   const el = document.getElementById("leaderboard");
   el.hidden = false;
 
-  // Collect wins and dates per ticker
   const wins = {};
   const winDates = {};
   allDates.forEach((d) => {
@@ -485,15 +596,16 @@ function renderLeaderboard() {
   document.getElementById("leaderboard-content").innerHTML = sorted
     .map(([ticker, count], i) => {
       const dates = (winDates[ticker] || []).map(shortDate).join(", ");
+      const color = tickerColor(ticker);
       return `
         <div class="lb-row ${i === 0 ? "lb-leader" : ""}">
           <div class="lb-rank">#${i + 1}</div>
-          <div class="lb-ticker">${ticker}</div>
+          <div class="lb-ticker" style="color:${color}">${ticker}</div>
           <div class="lb-info">
             <div class="lb-wins">${count} win${count !== 1 ? "s" : ""} out of ${allDates.length} days</div>
             <div class="lb-dates">${dates}</div>
           </div>
-          <div class="lb-bar-track"><div class="lb-bar-fill" style="width:${(count / maxWins) * 100}%"></div></div>
+          <div class="lb-bar-track"><div class="lb-bar-fill" style="width:${(count / maxWins) * 100}%;background:${color}"></div></div>
         </div>`;
     })
     .join("");
@@ -557,8 +669,11 @@ function buildTable(stocks, dateIdx) {
 
       const barPct = Math.min((Math.abs(pct) / maxAbs) * 100, 100);
       const barColor = pct >= 0 ? "var(--green)" : "var(--red)";
+      const hoverColor = tickerColor(item.ticker);
 
-      return `<tr class="${isTop}" data-ticker="${item.ticker}" data-pct="${pct}" data-open="${item.open_price}" data-close="${item.close_price}">
+      // Default: top mover shows in accent blue, rest in white.
+      // On hover: show the ticker's assigned color.
+      return `<tr class="${isTop}" data-ticker="${item.ticker}" data-pct="${pct}" data-open="${item.open_price}" data-close="${item.close_price}" data-color="${hoverColor}">
         <td class="ticker">${item.ticker}${badge}${streakBadge}</td>
         <td class="pct-bar-cell ${cls}">
           <span class="pct-bar-wrap"><span class="pct-bar" style="width:${barPct}%;background:${barColor}"></span></span>
@@ -602,13 +717,24 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-// ── Tooltips ──
-function initTooltips() {
+// ── Table Row Hover (show ticker color) ──
+function initTableTooltips() {
   const tooltip = document.getElementById("tooltip");
 
   document.addEventListener("mouseover", (e) => {
     const row = e.target.closest("tr[data-ticker]");
-    if (!row) { tooltip.classList.remove("visible"); return; }
+    if (!row) {
+      tooltip.classList.remove("visible");
+      return;
+    }
+
+    const color = row.dataset.color;
+    if (color) {
+      row.style.background = color.replace(")", ", 0.1)").replace("rgb", "rgba");
+      // Set ticker text color
+      const tickerTd = row.querySelector(".ticker");
+      if (tickerTd) tickerTd.style.color = color;
+    }
 
     const ticker = row.dataset.ticker;
     const pct = parseFloat(row.dataset.pct);
@@ -616,7 +742,7 @@ function initTooltips() {
     const close = parseFloat(row.dataset.close);
     const diff = close - open;
 
-    tooltip.innerHTML = `<strong>${ticker}</strong><br>` +
+    tooltip.innerHTML = `<strong style="color:${color}">${ticker}</strong><br>` +
       `Move: ${diff >= 0 ? "+$" : "-$"}${Math.abs(diff).toFixed(2)}<br>` +
       `$${open.toFixed(2)} &rarr; $${close.toFixed(2)}`;
     tooltip.classList.add("visible");
@@ -628,7 +754,16 @@ function initTooltips() {
   });
 
   document.addEventListener("mouseout", (e) => {
-    if (!e.target.closest("tr[data-ticker]")) tooltip.classList.remove("visible");
+    const row = e.target.closest("tr[data-ticker]");
+    if (row) {
+      // Reset to default colors
+      row.style.background = "";
+      const tickerTd = row.querySelector(".ticker");
+      if (tickerTd) tickerTd.style.color = "";
+    }
+    if (!e.relatedTarget || !e.relatedTarget.closest("tr[data-ticker]")) {
+      tooltip.classList.remove("visible");
+    }
   });
 }
 
