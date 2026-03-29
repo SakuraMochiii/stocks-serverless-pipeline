@@ -14,7 +14,7 @@ Frontend (S3) → API Gateway → API Lambda ───┘
 - **Ingestion Lambda** — Triggered daily at 10 PM UTC. Fetches stock data from a free stock API, finds the top mover, writes to DynamoDB.
 - **API Lambda** — Serves `GET /movers` via API Gateway. Returns the last 7 days of top movers as JSON.
 - **DynamoDB** — Stores top mover records with `date` as partition key. PAY_PER_REQUEST billing.
-- **Frontend** — Vanilla HTML/CSS/JS SPA hosted on S3. Dark theme with green/red color coding for gains/losses.
+- **Frontend** — Vanilla HTML/CSS/JS SPA hosted on S3. Dark grey theme with DM Sans + Space Mono typography, animated charts, and tabbed navigation.
 - **Terraform** — All infrastructure defined as code with 5 modules (dynamodb, ingestion_lambda, api_lambda, frontend, monitoring).
 
 ## How It Works
@@ -35,9 +35,9 @@ Frontend (S3) → API Gateway → API Lambda ───┘
 ```
 ├── .github/workflows/       # CI/CD pipelines (deploy + destroy)
 ├── frontend/                 # S3-hosted SPA (HTML/CSS/JS)
-│   ├── index.html            # Page structure with chart + dashboard layout
-│   ├── style.css             # Dark theme, green/red color coding, animations
-│   └── app.js                # Fetches API, renders charts, tables, and market pulse
+│   ├── index.html            # Page structure with tabbed Overview/History layout
+│   ├── style.css             # Dark grey theme, animations, DM Sans + Space Mono
+│   └── app.js                # Charts, market pulse, leaderboard, scroll reveals
 ├── lambdas/
 │   ├── ingestion/            # Daily cron Lambda
 │   │   ├── handler.py        # Entry point — loops tickers, picks winner, writes to DB
@@ -169,12 +169,25 @@ The monitoring module provides:
 
 ## Frontend Features
 
-- **Market Pulse Dashboard** — Real-time sentiment (bulls vs bears), average volatility, and top mover streak tracking
-- **Interactive Bar Chart** — Canvas-rendered daily performance chart with navigation between dates, glow effects on the top mover
-- **Inline Sparkline Bars** — Each table row shows a proportional bar indicating relative move magnitude
-- **Hover Tooltips** — Mouse over any stock row to see dollar-amount move and price range
-- **Streak Badges** — Highlights when a stock has been the top mover for consecutive days
-- **Staggered Animations** — Day cards fade in with staggered timing for a polished feel
+### Design
+- **Typography** — DM Sans for body text, Space Mono for data/numbers (financial terminal feel)
+- **Dark Grey Theme** — Neutral dark palette with subtle noise grain texture overlay
+- **Scroll Reveal** — Cards below the fold fade up when scrolled into view (IntersectionObserver)
+- **Card Hover** — All cards lift with shadow on hover; chart cards scale up
+- **Company Logos** — Google favicon service icons on the hero card and leaderboard
+
+### Overview Tab
+- **Market Pulse** — Sentiment (bulls vs bears), average volatility, top mover streak, and date range
+- **Today's Top Mover** — Centered hero card with ticker logo, % change, open/close/move details
+- **Daily Performance** — Animated horizontal bar chart (bars grow from zero on load and hover)
+- **Gainers vs Losers** — Animated donut chart that draws progressively like a clock sweep
+- **All Stocks Table** — Full watchlist with inline sparkline bars and TOP/streak badges
+- **Top Mover Leaderboard** — Ranked list with win counts, dates, % changes, and progress bars
+
+### History Tab
+- **Performance Over Time** — Multi-line chart with ticker selector buttons; hover shows data point tooltip; selected ticker stays highlighted while others dim
+- **Historical Data** — Date selector tabs showing full stock table for each past trading day
+- **Tab Transitions** — Content slides in directionally when switching between Overview and History
 
 ## Trade-offs & Notes
 
