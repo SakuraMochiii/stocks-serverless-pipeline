@@ -5,10 +5,25 @@ let allGrouped = {};
 let allDates = [];
 let selectedHistoryIdx = 0;
 
+// ── Color palette for line chart ──
+const TICKER_COLORS = {
+  AAPL: "#5ba0f5",
+  MSFT: "#34d399",
+  GOOGL: "#f87171",
+  AMZN: "#fbbf24",
+  TSLA: "#c4a5f7",
+  NVDA: "#f472b6",
+};
+
 // ── Helpers ──
 function formatDate(dateStr) {
   const d = new Date(dateStr + "T12:00:00");
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+}
+
+function shortDate(dateStr) {
+  const d = new Date(dateStr + "T12:00:00");
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 function getTopMover(stocks) {
@@ -33,7 +48,6 @@ async function fetchMovers() {
       return;
     }
 
-    // Group stocks by date
     allGrouped = {};
     data.forEach((item) => {
       if (!allGrouped[item.date]) allGrouped[item.date] = [];
@@ -44,10 +58,17 @@ async function fetchMovers() {
     renderMarketPulse();
     renderHero();
     renderCharts();
+    renderLineChart();
     renderTodayTable();
     renderLeaderboard();
     renderHistory();
     initTooltips();
+
+    window.addEventListener("resize", () => {
+      drawBarChart();
+      drawDonutChart();
+      drawLineChart();
+    });
   } catch (err) {
     loading.hidden = true;
     error.textContent = `Failed to load data: ${err.message}`;
@@ -135,15 +156,11 @@ function renderHero() {
   moveEl.className = cls;
 }
 
-// ── Charts ──
+// ── Bar + Donut Charts ──
 function renderCharts() {
   document.getElementById("charts-row").hidden = false;
   drawBarChart();
   drawDonutChart();
-  window.addEventListener("resize", () => {
-    drawBarChart();
-    drawDonutChart();
-  });
 }
 
 function drawBarChart() {
@@ -184,7 +201,6 @@ function drawBarChart() {
     ctx.stroke();
   }
 
-  // Zero line
   ctx.strokeStyle = "#3a5080";
   ctx.lineWidth = 1;
   ctx.beginPath();
@@ -192,7 +208,6 @@ function drawBarChart() {
   ctx.lineTo(zeroX, h - pad.bottom);
   ctx.stroke();
 
-  // Scale labels
   ctx.fillStyle = "#5a6f8f";
   ctx.font = "11px -apple-system, sans-serif";
   ctx.textAlign = "center";
@@ -222,13 +237,11 @@ function drawBarChart() {
     }
     ctx.globalAlpha = 1;
 
-    // Ticker
     ctx.fillStyle = stock.is_top_mover ? "#fff" : "#9bafc5";
     ctx.font = `${stock.is_top_mover ? "bold " : ""}12px -apple-system, sans-serif`;
     ctx.textAlign = "right";
     ctx.fillText(stock.ticker, pad.left - 10, y + barH / 2 + 4);
 
-    // Value
     ctx.fillStyle = color;
     ctx.font = "11px -apple-system, sans-serif";
     ctx.textAlign = isPos ? "left" : "right";
@@ -267,7 +280,7 @@ function drawDonutChart() {
     { val: gainers, color: "#34d399", label: "Gainers" },
     { val: losers, color: "#f87171", label: "Losers" },
     { val: flat, color: "#3a5080", label: "Flat" },
-  ].filter(s => s.val > 0);
+  ].filter((s) => s.val > 0);
 
   let angle = -Math.PI / 2;
   slices.forEach((slice) => {
@@ -281,7 +294,6 @@ function drawDonutChart() {
     angle += sweep;
   });
 
-  // Center text
   ctx.fillStyle = "#fff";
   ctx.font = "bold 22px -apple-system, sans-serif";
   ctx.textAlign = "center";
@@ -291,25 +303,155 @@ function drawDonutChart() {
   ctx.font = "11px -apple-system, sans-serif";
   ctx.fillText("gainers", cx, cy + 12);
 
-  // Legend
   const legend = document.getElementById("donut-legend");
   legend.innerHTML = slices
     .map((s) => `<span class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${s.label}: ${s.val}</span>`)
     .join("");
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.arcTo(x + w, y, x + w, y + r, r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-  ctx.lineTo(x + r, y + h);
-  ctx.arcTo(x, y + h, x, y + h - r, r);
-  ctx.lineTo(x, y + r);
-  ctx.arcTo(x, y, x + r, y, r);
-  ctx.closePath();
+// ── Line Chart ──
+function renderLineChart() {
+  document.getElementById("line-chart-section").hidden = false;
+  drawLineChart();
+}
+
+function drawLineChart() {
+  const canvas = document.getElementById("line-chart");
+  const ctx = canvas.getContext("2d");
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.parentElement.getBoundingClientRect();
+
+  canvas.width = rect.width * dpr;
+  canvas.height = 260 * dpr;
+  canvas.style.height = "260px";
+  ctx.scale(dpr, dpr);
+
+  const w = rect.width;
+  const h = 260;
+  ctx.clearRect(0, 0, w, h);
+
+  // Dates oldest to newest for left-to-right plotting
+  const dates = [...allDates].reverse();
+  if (dates.length < 2) return;
+
+  // Collect all tickers
+  const tickers = new Set();
+  dates.forEach((d) => (allGrouped[d] || []).forEach((s) => tickers.add(s.ticker)));
+  const tickerList = [...tickers].sort();
+
+  // Build data series: ticker -> [{date, pct}]
+  const series = {};
+  tickerList.forEach((t) => {
+    series[t] = dates.map((d) => {
+      const stock = (allGrouped[d] || []).find((s) => s.ticker === t);
+      return stock ? stock.pct_change : null;
+    });
+  });
+
+  // Compute range
+  let minVal = 0, maxVal = 0;
+  tickerList.forEach((t) => {
+    series[t].forEach((v) => {
+      if (v !== null) {
+        minVal = Math.min(minVal, v);
+        maxVal = Math.max(maxVal, v);
+      }
+    });
+  });
+  const range = Math.max(maxVal - minVal, 1);
+  const padY = range * 0.15;
+  minVal -= padY;
+  maxVal += padY;
+
+  const pad = { top: 20, bottom: 36, left: 52, right: 16 };
+  const cw = w - pad.left - pad.right;
+  const ch = h - pad.top - pad.bottom;
+
+  function xPos(i) { return pad.left + (i / (dates.length - 1)) * cw; }
+  function yPos(v) { return pad.top + (1 - (v - minVal) / (maxVal - minVal)) * ch; }
+
+  // Zero line
+  if (minVal < 0 && maxVal > 0) {
+    const zy = yPos(0);
+    ctx.strokeStyle = "#3a5080";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(pad.left, zy);
+    ctx.lineTo(w - pad.right, zy);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.fillStyle = "#5a6f8f";
+    ctx.font = "10px -apple-system, sans-serif";
+    ctx.textAlign = "right";
+    ctx.fillText("0%", pad.left - 6, zy + 3);
+  }
+
+  // Y-axis labels
+  ctx.fillStyle = "#5a6f8f";
+  ctx.font = "10px -apple-system, sans-serif";
+  ctx.textAlign = "right";
+  const ySteps = 4;
+  for (let i = 0; i <= ySteps; i++) {
+    const val = minVal + (i / ySteps) * (maxVal - minVal);
+    const y = yPos(val);
+    ctx.fillText(`${val.toFixed(1)}%`, pad.left - 6, y + 3);
+    ctx.strokeStyle = "#1a2847";
+    ctx.lineWidth = 0.5;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, y);
+    ctx.lineTo(w - pad.right, y);
+    ctx.stroke();
+  }
+
+  // X-axis labels
+  ctx.fillStyle = "#5a6f8f";
+  ctx.font = "10px -apple-system, sans-serif";
+  ctx.textAlign = "center";
+  dates.forEach((d, i) => {
+    ctx.fillText(shortDate(d), xPos(i), h - pad.bottom + 16);
+  });
+
+  // Draw lines
+  tickerList.forEach((ticker) => {
+    const color = TICKER_COLORS[ticker] || "#5ba0f5";
+    const data = series[ticker];
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+
+    let started = false;
+    data.forEach((val, i) => {
+      if (val === null) return;
+      const x = xPos(i);
+      const y = yPos(val);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Draw dots
+    data.forEach((val, i) => {
+      if (val === null) return;
+      const x = xPos(i);
+      const y = yPos(val);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  });
+
+  // Legend
+  const legendEl = document.getElementById("line-legend");
+  legendEl.innerHTML = tickerList
+    .map((t) => {
+      const c = TICKER_COLORS[t] || "#5ba0f5";
+      return `<span class="line-legend-item"><span class="line-legend-swatch" style="background:${c}"></span>${t}</span>`;
+    })
+    .join("");
 }
 
 // ── Today Table ──
@@ -325,24 +467,35 @@ function renderLeaderboard() {
   const el = document.getElementById("leaderboard");
   el.hidden = false;
 
-  // Count wins per ticker
+  // Collect wins and dates per ticker
   const wins = {};
+  const winDates = {};
   allDates.forEach((d) => {
     const top = getTopMover(allGrouped[d]);
-    if (top) wins[top.ticker] = (wins[top.ticker] || 0) + 1;
+    if (top) {
+      wins[top.ticker] = (wins[top.ticker] || 0) + 1;
+      if (!winDates[top.ticker]) winDates[top.ticker] = [];
+      winDates[top.ticker].push(d);
+    }
   });
 
   const sorted = Object.entries(wins).sort((a, b) => b[1] - a[1]);
   const maxWins = sorted.length ? sorted[0][1] : 1;
 
   document.getElementById("leaderboard-content").innerHTML = sorted
-    .map(([ticker, count], i) => `
-      <div class="lb-item ${i === 0 ? "lb-leader" : ""}">
-        <div class="lb-ticker">${ticker}</div>
-        <div class="lb-wins">${count} win${count !== 1 ? "s" : ""} / ${allDates.length} days</div>
-        <div class="lb-bar-track"><div class="lb-bar-fill" style="width:${(count / maxWins) * 100}%"></div></div>
-      </div>
-    `)
+    .map(([ticker, count], i) => {
+      const dates = (winDates[ticker] || []).map(shortDate).join(", ");
+      return `
+        <div class="lb-row ${i === 0 ? "lb-leader" : ""}">
+          <div class="lb-rank">#${i + 1}</div>
+          <div class="lb-ticker">${ticker}</div>
+          <div class="lb-info">
+            <div class="lb-wins">${count} win${count !== 1 ? "s" : ""} out of ${allDates.length} days</div>
+            <div class="lb-dates">${dates}</div>
+          </div>
+          <div class="lb-bar-track"><div class="lb-bar-fill" style="width:${(count / maxWins) * 100}%"></div></div>
+        </div>`;
+    })
     .join("");
 }
 
@@ -353,16 +506,12 @@ function renderHistory() {
   const section = document.getElementById("history-section");
   section.hidden = false;
 
-  const historyDates = allDates.slice(1); // skip today
+  const historyDates = allDates.slice(1);
   selectedHistoryIdx = 0;
 
   const tabsEl = document.getElementById("history-tabs");
   tabsEl.innerHTML = historyDates
-    .map((d, i) => {
-      const dt = new Date(d + "T12:00:00");
-      const label = dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      return `<button class="history-tab ${i === 0 ? "active" : ""}" data-idx="${i}">${label}</button>`;
-    })
+    .map((d, i) => `<button class="history-tab ${i === 0 ? "active" : ""}" data-idx="${i}">${shortDate(d)}</button>`)
     .join("");
 
   tabsEl.addEventListener("click", (e) => {
@@ -379,13 +528,13 @@ function renderHistory() {
 
 function renderHistoryTable(historyDates) {
   const date = historyDates[selectedHistoryIdx];
-  const stocks = allGrouped[date] || [];
-  document.getElementById("history-table").innerHTML = buildTable(stocks, selectedHistoryIdx + 1);
+  document.getElementById("history-table").innerHTML = buildTable(allGrouped[date] || [], selectedHistoryIdx + 1);
 }
 
 // ── Shared Table Builder ──
 function buildTable(stocks, dateIdx) {
-  if (!stocks || stocks.length === 0) return '<div style="padding:1rem;color:var(--text-muted);text-align:center">No data</div>';
+  if (!stocks || stocks.length === 0)
+    return '<div style="padding:1rem;color:var(--text-muted);text-align:center">No data</div>';
 
   const sorted = [...stocks].sort((a, b) => Math.abs(b.pct_change) - Math.abs(a.pct_change));
   const maxAbs = Math.max(...sorted.map((s) => Math.abs(s.pct_change)), 0.1);
@@ -400,20 +549,20 @@ function buildTable(stocks, dateIdx) {
       const cls = pct >= 0 ? "positive" : "negative";
       const sign = pct >= 0 ? "+" : "";
       const isTop = item.is_top_mover ? "top-mover" : "";
-      const badge = item.is_top_mover ? '<span class="badge">TOP MOVER</span>' : "";
+      const badge = item.is_top_mover ? '<span class="badge">TOP</span>' : "";
 
       const streakCount = getStreakAt(topByDate, item.ticker, dateIdx);
       const streakBadge = item.is_top_mover && streakCount > 1
-        ? `<span class="streak-badge">${streakCount}d streak</span>` : "";
+        ? `<span class="streak-badge">${streakCount}d</span>` : "";
 
-      const barPct = (Math.abs(pct) / maxAbs) * 100;
+      const barPct = Math.min((Math.abs(pct) / maxAbs) * 100, 100);
       const barColor = pct >= 0 ? "var(--green)" : "var(--red)";
 
       return `<tr class="${isTop}" data-ticker="${item.ticker}" data-pct="${pct}" data-open="${item.open_price}" data-close="${item.close_price}">
         <td class="ticker">${item.ticker}${badge}${streakBadge}</td>
         <td class="pct-bar-cell ${cls}">
-          <span class="pct-bar" style="width:${barPct}%;background:${barColor}"></span>
-          ${sign}${pct.toFixed(2)}%
+          <span class="pct-bar-wrap"><span class="pct-bar" style="width:${barPct}%;background:${barColor}"></span></span>
+          <span class="pct-text">${sign}${pct.toFixed(2)}%</span>
         </td>
         <td>$${item.open_price.toFixed(2)}</td>
         <td>$${item.close_price.toFixed(2)}</td>
@@ -422,7 +571,8 @@ function buildTable(stocks, dateIdx) {
     .join("");
 
   return `<table>
-    <thead><tr><th>Ticker</th><th>Change %</th><th>Open</th><th>Close</th></tr></thead>
+    <colgroup><col class="col-ticker"><col class="col-change"><col class="col-open"><col class="col-close"></colgroup>
+    <thead><tr><th>Ticker</th><th>Change</th><th>Open</th><th>Close</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -435,6 +585,21 @@ function getStreakAt(topByDate, ticker, idx) {
     else break;
   }
   return count;
+}
+
+// ── Canvas Helpers ──
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
 }
 
 // ── Tooltips ──
