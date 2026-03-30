@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,6 +17,10 @@
       <p class="eyebrow">Daily Watchlist</p>
       <h1>Top Movers</h1>
       <p class="subtitle">AAPL &middot; MSFT &middot; GOOGL &middot; AMZN &middot; TSLA &middot; NVDA</p>
+      <button id="theme-toggle" class="theme-toggle" title="Toggle light/dark mode">
+        <span class="theme-icon-dark">&#9789;</span>
+        <span class="theme-icon-light">&#9788;</span>
+      </button>
     </header>
 
     <div id="loading" class="loading">
@@ -92,16 +96,29 @@
         </div>
         <div id="today-table"></div>
       </div>
+    </div>
+
+    <!-- History Tab -->
+    <div id="tab-history" class="tab-content" style="display:none">
+      <!-- History Hero: biggest mover across all historical data -->
+      <div id="history-hero" class="card hero-card" hidden>
+        <div class="hero-inner">
+          <div class="hero-label">Biggest Historical Move</div>
+          <div id="hist-hero-ticker" class="hero-ticker">--</div>
+          <div id="hist-hero-pct" class="hero-pct">--</div>
+          <div class="hero-details">
+            <div class="hero-detail"><span class="hero-detail-label">Date</span> <span id="hist-hero-date">--</span></div>
+            <div class="hero-detail"><span class="hero-detail-label">Open</span> <span id="hist-hero-open">--</span></div>
+            <div class="hero-detail"><span class="hero-detail-label">Close</span> <span id="hist-hero-close">--</span></div>
+          </div>
+        </div>
+      </div>
 
       <div id="leaderboard" class="card" hidden>
         <div class="card-header">Top Mover Leaderboard</div>
         <div id="leaderboard-content" class="leaderboard-list"></div>
       </div>
 
-    </div>
-
-    <!-- History Tab -->
-    <div id="tab-history" class="tab-content" style="display:none">
       <div id="line-chart-section" class="card line-chart-card" hidden>
         <div class="card-header">Performance Over Time</div>
         <div id="line-selector" class="line-selector"></div>

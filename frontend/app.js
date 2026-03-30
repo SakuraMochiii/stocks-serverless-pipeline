@@ -126,11 +126,12 @@ async function fetchMovers() {
     renderCharts();
     renderTodayTable();
     renderLeaderboard();
+    renderHistoryHero();
     renderLineChart();
     renderHistory();
     initLineChartHover();
     initPageTabs();
-    setupScrollReveal();
+    initThemeToggle();
 
     window.addEventListener("resize", () => {
       drawBarChart(1);
@@ -219,6 +220,39 @@ function renderHero() {
   const moveEl = document.getElementById("hero-move");
   moveEl.textContent = `${diff >= 0 ? "+$" : "-$"}${Math.abs(diff).toFixed(2)}`;
   moveEl.className = cls;
+}
+
+// ── History Hero (biggest move across all data) ──
+function renderHistoryHero() {
+  const el = document.getElementById("history-hero");
+  if (!el) return;
+
+  let biggest = null;
+  allDates.forEach((d) => {
+    const top = getTopMover(allGrouped[d] || []);
+    if (top && (!biggest || Math.abs(top.pct_change) > Math.abs(biggest.pct_change))) {
+      biggest = { ...top, date: d };
+    }
+  });
+
+  if (!biggest) return;
+  el.hidden = false;
+
+  const pct = biggest.pct_change;
+  const cls = pct >= 0 ? "positive" : "negative";
+  const sign = pct >= 0 ? "+" : "";
+
+  const tickerEl = document.getElementById("hist-hero-ticker");
+  tickerEl.innerHTML = `${tickerIcon(biggest.ticker, 36)}${biggest.ticker}`;
+  tickerEl.style.color = tickerColor(biggest.ticker);
+
+  const pctEl = document.getElementById("hist-hero-pct");
+  pctEl.textContent = `${sign}${pct.toFixed(2)}%`;
+  pctEl.className = `hero-pct ${cls}`;
+
+  document.getElementById("hist-hero-date").textContent = formatDate(biggest.date);
+  document.getElementById("hist-hero-open").textContent = `$${biggest.open_price.toFixed(2)}`;
+  document.getElementById("hist-hero-close").textContent = `$${biggest.close_price.toFixed(2)}`;
 }
 
 // ── Bar + Donut Charts ──
@@ -923,38 +957,37 @@ function initPageTabs() {
         lineLegendRendered = false;
         drawLineChart(selectedLineTicker);
       }
-      newEl.querySelectorAll(".card:not(.visible)").forEach((c, i) => {
-        c.classList.add("scroll-reveal");
-        setTimeout(() => c.classList.add("visible"), i * 1000);
-      });
     }, 10);
   });
 }
 
-// ── Scroll Reveal ──
-function setupScrollReveal() {
-  const els = document.querySelectorAll("#tab-overview .card, .hero-card, #market-pulse");
 
-  els.forEach((el) => {
-    const rect = el.getBoundingClientRect();
-    if (rect.top > window.innerHeight) {
-      el.classList.add("scroll-reveal");
+// ── Theme Toggle ──
+function initThemeToggle() {
+  const btn = document.getElementById("theme-toggle");
+  if (!btn) return;
+
+  // Restore saved preference
+  const saved = localStorage.getItem("theme");
+  if (saved) {
+    document.documentElement.setAttribute("data-theme", saved);
+  }
+
+  btn.addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme");
+    const next = current === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    localStorage.setItem("theme", next);
+
+    // Reload CSS variables into THEME object and redraw canvases
+    loadTheme();
+    drawBarChart(1);
+    drawDonutChart(1);
+    if (currentTab === "history") {
+      lineLegendRendered = false;
+      drawLineChart(selectedLineTicker);
     }
   });
-
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          entry.target.classList.add("visible");
-          observer.unobserve(entry.target);
-        }
-      });
-    },
-    { threshold: 0.1 }
-  );
-
-  document.querySelectorAll(".scroll-reveal").forEach((el) => observer.observe(el));
 }
 
 fetchMovers();

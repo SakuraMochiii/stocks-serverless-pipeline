@@ -170,11 +170,11 @@ The monitoring module provides:
 ## Frontend Features
 
 ### Design
-- **Typography** — DM Sans for body text, Space Mono for data/numbers (financial terminal feel)
-- **Dark Grey Theme** — Neutral dark palette with subtle noise grain texture overlay
-- **Scroll Reveal** — Cards below the fold fade up when scrolled into view (IntersectionObserver)
-- **Card Hover** — All cards lift with shadow on hover; chart cards scale up
-- **Company Logos** — Google favicon service icons on the hero card and leaderboard
+- **Typography** — Instrument Serif (italic) for headings, Outfit for body, JetBrains Mono for data
+- **Dark/Light Mode** — Toggle button in header, persists to localStorage. Dark mode uses warm near-black with gold accent; light mode uses warm parchment tones
+- **Noise Grain Texture** — Subtle overlay for visual depth
+- **Card Hover** — All cards lift with shadow on hover
+- **Company Logos** — Google favicon service icons on hero cards and leaderboard
 
 ### Overview Tab
 - **Market Pulse** — Sentiment (bulls vs bears), average volatility, top mover streak, and date range
@@ -182,9 +182,10 @@ The monitoring module provides:
 - **Daily Performance** — Animated horizontal bar chart (bars grow from zero on load and hover)
 - **Gainers vs Losers** — Animated donut chart that draws progressively like a clock sweep
 - **All Stocks Table** — Full watchlist with inline sparkline bars and TOP/streak badges
-- **Top Mover Leaderboard** — Ranked list with win counts, dates, % changes, and progress bars
 
 ### History Tab
+- **Biggest Historical Move** — Hero card showing the largest absolute % change across all dates
+- **Top Mover Leaderboard** — Ranked list with win counts, dates, % changes, and progress bars
 - **Performance Over Time** — Multi-line chart with ticker selector buttons; hover shows data point tooltip; selected ticker stays highlighted while others dim
 - **Historical Data** — Date selector tabs showing full stock table for each past trading day
 - **Tab Transitions** — Content slides in directionally when switching between Overview and History
