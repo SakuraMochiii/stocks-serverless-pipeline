@@ -31,5 +31,6 @@ frontend/preview.html
 frontend/app.preview.js
 frontend/app.deploy.js
 
-# Project instructions
+# Project notes
+project-overview.md
 Project Challenge_ Stocks Serverless Pipeline (3).pdf
