@@ -8,7 +8,7 @@ from dynamodb_writer import write_all_stocks
 
 def find_last_trading_date(api_key):
     """Find the most recent trading date by testing AAPL."""
-    date = datetime.utcnow() - timedelta(days=1)
+    date = datetime.utcnow()
     for _ in range(5):
         date_str = date.strftime("%Y-%m-%d")
         data = get_daily_close("AAPL", date_str, api_key, fallback=False)
