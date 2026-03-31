@@ -11,10 +11,10 @@ Frontend (S3) → API Gateway → API Lambda ───┘
 ```
 
 **Components:**
-- **Ingestion Lambda** — Triggered daily at 10 PM UTC. Fetches stock data from a free stock API, finds the top mover, writes to DynamoDB.
+- **Ingestion Lambda** — Triggered daily at 10 PM UTC. Fetches stock data from Massive API, finds the top mover, writes to DynamoDB.
 - **API Lambda** — Serves `GET /movers` via API Gateway. Returns the last 7 days of top movers as JSON.
 - **DynamoDB** — Stores top mover records with `date` as partition key. PAY_PER_REQUEST billing.
-- **Frontend** — Vanilla HTML/CSS/JS SPA hosted on S3. Dark grey theme with DM Sans + Space Mono typography, animated charts, and tabbed navigation.
+- **Frontend** — Vanilla HTML/CSS/JS SPA hosted on S3. Dark/light theme with Instrument Serif + Outfit + JetBrains Mono typography, animated charts, and tabbed navigation.
 - **Terraform** — All infrastructure defined as code with 5 modules (dynamodb, ingestion_lambda, api_lambda, frontend, monitoring).
 
 ## How It Works
@@ -22,7 +22,7 @@ Frontend (S3) → API Gateway → API Lambda ───┘
 ### Data Flow
 
 1. Every night at 10 PM UTC, an **EventBridge** cron rule triggers the **Ingestion Lambda**.
-2. The Lambda fetches the daily open/close prices for each stock in the watchlist from a free stock API.
+2. The Lambda fetches the daily open/close prices for each stock in the watchlist from the Massive API.
 3. For each stock, it calculates the percentage change: `((Close - Open) / Open) × 100`.
 4. The stock with the highest **absolute** % change (biggest move up or down) is selected as the day's top mover.
 5. The winner is written to **DynamoDB** with the date, ticker symbol, percent change, open price, and close price.
@@ -36,8 +36,9 @@ Frontend (S3) → API Gateway → API Lambda ───┘
 ├── .github/workflows/       # CI/CD pipelines (deploy + destroy)
 ├── frontend/                 # S3-hosted SPA (HTML/CSS/JS)
 │   ├── index.html            # Page structure with tabbed Overview/History layout
-│   ├── style.css             # Dark grey theme, animations, DM Sans + Space Mono
-│   └── app.js                # Charts, market pulse, leaderboard, scroll reveals
+│   ├── favicon.svg           # Stock chart icon for browser tab
+│   ├── style.css             # Dark/light themes, animations, Instrument Serif + Outfit + JetBrains Mono
+│   └── app.js                # Charts, market pulse, leaderboard, theme toggle
 ├── lambdas/
 │   ├── ingestion/            # Daily cron Lambda
 │   │   ├── handler.py        # Entry point — loops tickers, picks winner, writes to DB
@@ -69,7 +70,7 @@ Frontend (S3) → API Gateway → API Lambda ───┘
 - Free stock API key (stored in `.env` locally, GitHub Secrets for CI/CD)
 - Terraform >= 1.5
 - AWS CLI v2
-- S3 bucket for Terraform state (`stocks-pipeline-tfstate`)
+- S3 bucket for Terraform state (`stocks-pipeline-tfstate-v2`)
 
 ## GitHub Secrets
 
