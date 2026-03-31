@@ -822,7 +822,7 @@ function renderHistory() {
   const section = document.getElementById("history-section");
   section.hidden = false;
 
-  const historyDates = allDates.slice(1);
+  const historyDates = allDates;
   selectedHistoryIdx = 0;
 
   const tabsEl = document.getElementById("history-tabs");
